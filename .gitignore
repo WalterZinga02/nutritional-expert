@@ -1,0 +1,21 @@
+# IDE and operating system
+.agents/
+Docs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local secrets and environment
+.env
+.env.*
+!.env.example
+
+# Backend
+backend/target/
+backend/*.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
