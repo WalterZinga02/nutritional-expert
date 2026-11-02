@@ -1,0 +1,27 @@
+.auth-layout { display:grid; grid-template-columns:1fr 1fr; gap:6rem; align-items:center; max-width:1080px; margin:3rem auto; padding:0 2rem; }
+.intro h1 { font-family:Georgia,serif; font-size:clamp(2.4rem,4vw,3.6rem); line-height:1.15; font-weight:400; letter-spacing:-.04em; margin:1.2rem 0; }
+.intro > p:not(.eyebrow) { color:var(--muted); line-height:1.8; max-width:340px; }
+.intro-note { border-top:1px solid var(--line); margin-top:3rem; padding-top:1.5rem; color:var(--muted); font-size:.9rem; line-height:1.7; }
+.intro-note span { display:block; font-size:2.5rem; color:var(--green); margin-bottom:.8rem; }
+.card { background:white; border:1px solid var(--line); border-radius:20px; padding:2.2rem; box-shadow:0 16px 50px #243e3010; }
+h2 { font-size:1.8rem; margin:.7rem 0; font-weight:600; }
+.subtitle { color:var(--muted); margin:0 0 1.8rem; line-height:1.5; }
+.field { margin-bottom:1rem; }
+label { display:block; font-size:.88rem; font-weight:600; margin-bottom:.45rem; }
+.optional, small { color:var(--muted); font-weight:400; font-size:.8rem; }
+small { display:block; margin-top:.35rem; }
+input { box-sizing:border-box; width:100%; min-height:46px; border:1px solid #bac7be; border-radius:8px; padding:.7rem .85rem; font:inherit; background:#fff; color:var(--ink); }
+input[aria-invalid="true"] { border-color:#a33232; }
+.name-fields { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.password-input { position:relative; }
+.password-input input { padding-right:5.5rem; }
+.reveal { position:absolute; right:6px; top:6px; padding:.5rem; background:none; border:0; color:var(--green); font-size:.8rem; cursor:pointer; }
+.submit { width:100%; margin-top:.5rem; min-height:48px; }
+.switch { text-align:center; font-size:.9rem; margin:1.5rem 0 0; line-height:1.7; }
+.switch a { margin-left:.25rem; font-weight:600; }
+.error, .notice { border-radius:8px; padding:.8rem; font-size:.9rem; line-height:1.5; }
+.error { color:#852727; background:#fff0ee; }
+.notice { background:#fff8e4; color:#705315; }
+.field-error { color:#a33232; }
+@media(max-width:800px) { .auth-layout { grid-template-columns:1fr; gap:2rem; max-width:480px; margin:2rem auto; padding:0 1.2rem; } .intro h1 { font-size:2.5rem; } .intro-note { display:none; } .card { padding:1.5rem; } }
+@media(max-width:380px) { .name-fields { grid-template-columns:1fr; gap:0; } }

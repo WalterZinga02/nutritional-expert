@@ -27,4 +27,13 @@ public record RegisterRequest(
                 regexp = "^$|^[+0-9][0-9 .()\\-]{5,29}$",
                 message = "Phone number format is invalid")
         String phone) {
+    public RegisterRequest {
+        email = email == null ? null : email.strip();
+        firstName = firstName == null ? null : firstName.strip();
+        lastName = lastName == null ? null : lastName.strip();
+        phone = phone == null ? null : phone.strip();
+    }
+
+    @Override
+    public String toString() { return "RegisterRequest[redacted]"; }
 }
