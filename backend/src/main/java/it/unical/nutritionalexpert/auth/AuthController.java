@@ -18,4 +18,10 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody LoginRequest request) { return auth.login(request); }
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal Jwt jwt) { return auth.currentUser(jwt.getSubject()); }
+
+    @PatchMapping("/me")
+    public UserResponse updateProfile(@AuthenticationPrincipal Jwt jwt,
+                                      @Valid @RequestBody UpdateProfileRequest request) {
+        return auth.updateProfile(jwt.getSubject(), request);
+    }
 }

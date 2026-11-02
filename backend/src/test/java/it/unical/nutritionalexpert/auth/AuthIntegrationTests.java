@@ -143,6 +143,65 @@ class AuthIntegrationTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test void profileUpdatePersistsOnlyAllowedFieldsForAuthenticatedUser() throws Exception {
+        String token = token(register("owner@example.it"));
+        register("other@example.it");
+        User original = users.findByEmailIgnoreCase("owner@example.it").orElseThrow();
+        User other = users.findByEmailIgnoreCase("other@example.it").orElseThrow();
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                        "firstName", "  Anna  ", "lastName", "  Verdi ", "phone", " +39 3331234567 ",
+                        "id", other.getId(), "email", "changed@example.it", "role", "ADMIN", "password", "Changed123!"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(original.getId()))
+                .andExpect(jsonPath("$.firstName").value("Anna"))
+                .andExpect(jsonPath("$.phone").value("+39 3331234567"))
+                .andExpect(jsonPath("$.email").value("owner@example.it"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        User updated = users.findById(original.getId()).orElseThrow();
+        assertThat(updated.getLastName()).isEqualTo("Verdi");
+        assertThat(updated.getPasswordHash()).isEqualTo(original.getPasswordHash());
+        assertThat(updated.getCreatedAt()).isEqualTo(original.getCreatedAt());
+        assertThat(updated.getUpdatedAt()).isAfterOrEqualTo(original.getUpdatedAt());
+        assertThat(users.findById(other.getId()).orElseThrow().getFirstName()).isEqualTo("Mario");
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Anna"));
+    }
+
+    @Test void partialProfileUpdatePreservesOmittedFieldsAndCanRemovePhone() throws Exception {
+        String token = token(register("owner@example.it"));
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"phone\":\"3331234567\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Mario"));
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"firstName\":\"Anna\",\"phone\":null}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("3331234567"));
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"phone\":\"\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Anna"));
+        assertThat(users.findByEmailIgnoreCase("owner@example.it").orElseThrow().getPhone()).isNull();
+    }
+
+    @Test void invalidProfileUpdateDoesNotChangeStoredData() throws Exception {
+        String token = token(register("owner@example.it"));
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
+                        "firstName", " ", "lastName", "x".repeat(101), "phone", "abc"))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.firstName").exists())
+                .andExpect(jsonPath("$.errors.lastName").exists()).andExpect(jsonPath("$.errors.phone").exists());
+        assertThat(users.findByEmailIgnoreCase("owner@example.it").orElseThrow().getFirstName()).isEqualTo("Mario");
+    }
+
+    @Test void profileUpdateRequiresValidTokenAndExistingAccount() throws Exception {
+        mvc.perform(patch("/api/auth/me").contentType(MediaType.APPLICATION_JSON).content("{\"firstName\":\"Anna\"}"))
+                .andExpect(status().isUnauthorized());
+        String token = token(register("owner@example.it"));
+        users.deleteAll();
+        mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"firstName\":\"Anna\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private String signedToken(String issuer, Instant expiresAt) {
         var claims = JwtClaimsSet.builder().issuer(issuer).subject("1")
                 .issuedAt(Instant.now().minusSeconds(600)).expiresAt(expiresAt).claim("role", "USER").build();

@@ -12,6 +12,7 @@ export interface UserProfile {
   role: 'USER' | 'ADMIN';
 }
 export interface Credentials { email: string; password: string; }
+export interface ProfileUpdate { firstName: string; lastName: string; phone: string; }
 export interface Registration extends Credentials { firstName: string; lastName: string; phone: string; }
 export interface AuthResponse { accessToken: string; tokenType: string; expiresAt: string; user: UserProfile; }
 const STORAGE_KEY = 'nutritional-expert.session';
@@ -53,6 +54,13 @@ export class AuthService {
     } catch {
       this.clear();
     }
+  }
+  updateProfile(data: ProfileUpdate) {
+    const sessionToken = this.token;
+    return this.http.patch<UserProfile>('/api/auth/me', data).pipe(tap(user => {
+      // A late response must not restore a profile after logout or session expiry.
+      if (sessionToken && this.accessToken() === sessionToken) this.currentUser.set(user);
+    }));
   }
   logout(expired = false): void {
     this.clear();

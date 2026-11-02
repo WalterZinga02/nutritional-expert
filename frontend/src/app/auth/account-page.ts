@@ -1,28 +1,68 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
+import { finalize } from 'rxjs';
 import { AuthService } from './auth.service';
 
 @Component({
   selector: 'app-account-page',
-  template: `
-    <section class="account">
-      <p class="eyebrow">IL TUO SPAZIO PERSONALE</p>
-      <h1>Ciao, {{ auth.user()?.firstName }}.</h1>
-      <p>Hai effettuato l'accesso a Nutritional Expert.</p>
-      @if (auth.user(); as user) {
-        <dl>
-          <div><dt>Nome e cognome</dt><dd>{{ user.firstName }} {{ user.lastName }}</dd></div>
-          <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
-          <div><dt>Telefono</dt><dd>{{ user.phone || 'Non indicato' }}</dd></div>
-        </dl>
-      }
-      <button class="primary" type="button" (click)="auth.logout()">Esci dall'account</button>
-    </section>
-  `,
-  styles: `
-    .account { max-width:650px; margin:4rem auto; padding:0 1.5rem; }
-    h1 { font:400 2.8rem Georgia,serif; margin:1rem 0; }
-    p, dt { color:var(--muted); } dl { background:white; border:1px solid var(--line); border-radius:16px; padding:1.5rem; margin:2rem 0; }
-    dl div + div { margin-top:1.3rem; } dt { font-size:.85rem; } dd { margin:.4rem 0 0; overflow-wrap:anywhere; }
-  `
+  imports: [ReactiveFormsModule],
+  templateUrl: './account-page.html',
+  styleUrl: './account-page.scss'
 })
-export class AccountPage { readonly auth = inject(AuthService); }
+export class AccountPage {
+  readonly auth = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+  readonly editing = signal(false);
+  readonly busy = signal(false);
+  readonly error = signal('');
+  readonly success = signal('');
+  readonly form = this.fb.nonNullable.group({
+    firstName: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)]],
+    lastName: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)]],
+    phone: ['', [Validators.pattern(/^$|^[+0-9][0-9 .()\-]{5,29}$/)]]
+  });
+
+  startEditing(): void {
+    const user = this.auth.user();
+    if (!user || this.busy()) return;
+    this.form.reset({ firstName: user.firstName, lastName: user.lastName, phone: user.phone ?? '' });
+    this.error.set('');
+    this.success.set('');
+    this.editing.set(true);
+  }
+  cancel(): void {
+    if (this.busy()) return;
+    this.editing.set(false);
+    this.error.set('');
+  }
+  invalid(name: keyof typeof this.form.controls): boolean {
+    const control = this.form.controls[name];
+    return control.touched && control.invalid;
+  }
+  save(): void {
+    if (this.busy()) return;
+    const value = this.form.getRawValue();
+    const data = { firstName: value.firstName.trim(), lastName: value.lastName.trim(), phone: value.phone.trim() };
+    this.form.patchValue(data);
+    this.form.markAllAsTouched();
+    if (this.form.invalid) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.success.set('');
+    this.auth.updateProfile(data).pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: () => {
+        this.editing.set(false);
+        this.success.set('Profilo aggiornato correttamente.');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.error.set(error.status === 0 ? 'Il servizio non è raggiungibile. Riprova tra poco.'
+          : error.error?.message || 'Non è stato possibile salvare il profilo. Riprova.');
+        const fields = error.error?.errors;
+        for (const name of ['firstName', 'lastName', 'phone'] as const) {
+          if (typeof fields?.[name] === 'string') this.form.controls[name].setErrors({ server: fields[name] });
+        }
+      }
+    });
+  }
+}

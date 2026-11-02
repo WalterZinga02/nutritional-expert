@@ -77,6 +77,12 @@ public class User {
         updatedAt = Instant.now();
     }
 
+    public void updateProfile(String firstName, String lastName, String phone) {
+        if (firstName != null) this.firstName = firstName;
+        if (lastName != null) this.lastName = lastName;
+        if (phone != null) this.phone = phone.isEmpty() ? null : phone;
+    }
+
     public Long getId() {
         return id;
     }

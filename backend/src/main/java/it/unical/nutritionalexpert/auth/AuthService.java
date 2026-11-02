@@ -40,8 +40,21 @@ public class AuthService {
     }
     @Transactional(readOnly = true)
     public UserResponse currentUser(String subject) {
+        return UserResponse.from(requireCurrentUser(subject));
+    }
+
+    @Transactional
+    public UserResponse updateProfile(String subject, UpdateProfileRequest request) {
+        User user = requireCurrentUser(subject);
+        user.updateProfile(request.firstName(), request.lastName(), request.phone());
+        // JPA tracks the managed entity and persists changes within this transaction.
+        users.flush();
+        return UserResponse.from(user);
+    }
+
+    private User requireCurrentUser(String subject) {
         try {
-            return users.findById(Long.parseLong(subject)).map(UserResponse::from)
+            return users.findById(Long.parseLong(subject))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessione non valida."));
         } catch (NumberFormatException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessione non valida.");

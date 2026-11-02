@@ -1,0 +1,24 @@
+.account { max-width:650px; margin:4rem auto; padding:0 1.5rem; }
+h1 { font:400 2.8rem Georgia,serif; margin:1rem 0; }
+h2 { margin:0 0 1rem; font-size:1.4rem; }
+p, dt, small, label span { color:var(--muted); }
+dl, form { background:white; border:1px solid var(--line); border-radius:16px; padding:1.5rem; margin:2rem 0; }
+dl div + div { margin-top:1.3rem; }
+dt, small { font-size:.85rem; }
+dd { margin:.4rem 0 0; overflow-wrap:anywhere; }
+fieldset { padding:0; margin:0; border:0; min-width:0; }
+.field { margin-bottom:1.2rem; }
+label { display:block; font-weight:600; margin-bottom:.45rem; }
+label span { font-weight:400; font-size:.85rem; }
+input { width:100%; min-height:46px; border:1px solid #bac7be; border-radius:8px; padding:.7rem .85rem; background:white; color:var(--ink); }
+input[aria-invalid="true"] { border-color:#a33232; }
+small { display:block; margin-top:.4rem; }
+.field-error { color:#a33232; }
+.actions { display:flex; flex-wrap:wrap; gap:.75rem; }
+.secondary { background:transparent; border:1px solid var(--green); color:var(--green); border-radius:8px; padding:.85rem 1.3rem; cursor:pointer; }
+.logout { display:block; margin-top:1rem; }
+.success, .error { border-radius:8px; padding:.85rem; line-height:1.5; }
+.success { background:#e4f2e8; color:#285c47; }
+.error { background:#fff0ee; color:#852727; }
+.email { overflow-wrap:anywhere; }
+@media(max-width:480px) { .account { margin:2rem auto; } dl, form { padding:1.2rem; } .actions button { flex:1; } }
