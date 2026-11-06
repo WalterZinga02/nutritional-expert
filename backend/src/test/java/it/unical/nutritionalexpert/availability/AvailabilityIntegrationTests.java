@@ -10,7 +10,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
@@ -22,7 +21,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Sql("/appointment-test-schema.sql")
 class AvailabilityIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -129,7 +127,7 @@ class AvailabilityIntegrationTests {
         AvailabilitySlot past = slots.saveAndFlush(new AvailabilitySlot(Instant.now().minusSeconds(3600), Instant.now().minusSeconds(1800)));
         update(past.getId(), false, 0, 409);
         long id = id(create(start, start.plusSeconds(1800), 201));
-        jdbc.update("INSERT INTO appointment (user_id, slot_id, type, status) VALUES (?, ?, 'DIET_REVIEW', 'CONFIRMED')", userId, id);
+        jdbc.update("INSERT INTO appointment (user_id, slot_id, type, status, version, created_at, updated_at) VALUES (?, ?, 'DIET_REVIEW', 'CONFIRMED', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", userId, id);
         update(id, false, 0, 409);
         mvc.perform(get("/api/admin/availability").header("Authorization", "Bearer " + admin)
                 .param("from", start.toString()).param("to", start.plusSeconds(3600).toString()))

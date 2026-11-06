@@ -6,7 +6,7 @@ import java.util.HashSet;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-// Read-only bridge to the existing appointment table, before the booking module is implemented.
+// Read-only queries shared by the ADMIN agenda and user availability search.
 @Repository
 public class SlotAppointments {
     private final JdbcTemplate jdbc;

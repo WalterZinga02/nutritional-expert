@@ -5,7 +5,8 @@ Piattaforma web per i clienti di uno studio di nutrizione.
 ## Stato attuale
 
 Registrazione e login collegati tra Angular e Spring Boot, visualizzazione e modifica del profilo personale e logout.
-Homepage dello studio, prenotazioni, recensioni e gestione ADMIN sono i prossimi moduli.
+Sono disponibili anche la gestione degli slot ADMIN e la prenotazione delle visite con elenco personale.
+Homepage dello studio, recensioni, annullamento e gestione degli stati degli appuntamenti sono i prossimi moduli.
 
 - Backend: Java 17, Spring Boot, Spring Security, JPA, PostgreSQL e Flyway.
 - Frontend: Angular SPA con form reattivi, rotte protette e messaggi in italiano.
@@ -98,6 +99,71 @@ eventualmente inviati nel JSON non vengono applicati. Il salvataggio avviene in 
 transazione e restituisce il profilo aggiornato senza rinnovare il token.
 Non sono necessarie nuove migrazioni: i campi erano già presenti in `app_user`.
 
+## Disponibilità dello studio
+
+Un account ADMIN accede a **Disponibilità studio** (`/admin/disponibilita`) per
+creare, consultare, disabilitare e riattivare gli slot. Gli orari sono mostrati nel
+fuso del browser, indicato nella pagina, e inviati alle API come istanti UTC.
+
+| API ADMIN | Operazione |
+| --- | --- |
+| GET /api/admin/availability?from=...&to=... | Elenco nell'intervallo, massimo 31 giorni |
+| POST /api/admin/availability | Creazione con `startTime` ed `endTime` |
+| PATCH /api/admin/availability/{id} | Cambio disponibilità con `available` e `version` |
+
+Gli slot devono iniziare nel futuro, durare al massimo 24 ore e non sovrapporsi.
+Gli intervalli adiacenti sono consentiti. Anche gli slot disabilitati occupano il
+proprio intervallo nell'agenda: si possono riattivare, senza crearne una copia.
+Non è possibile cambiare disponibilità a slot già iniziati o associati a un
+appuntamento non annullato. La versione impedisce aggiornamenti concorrenti persi.
+
+La migrazione V3 impone l'assenza di sovrapposizioni anche in PostgreSQL, per
+proteggere dalle creazioni simultanee. Se esistono già slot sovrapposti, occorre
+risolverli prima di applicare la migrazione, che non elimina dati automaticamente.
+
+Per il primo ADMIN, registrare normalmente un account e promuovere **solo quello
+del professionista** nel database, sostituendo l'indirizzo nell'esempio:
+
+```sql
+UPDATE app_user SET role = 'ADMIN', updated_at = CURRENT_TIMESTAMP
+WHERE email = 'professionista@example.it'
+RETURNING id, email, role;
+```
+
+Effettuare logout e login per ottenere un JWT con il nuovo ruolo.
+Non vengono creati amministratori o password predefiniti dall'applicazione.
+
+## Prenotazione appuntamenti
+
+Dopo il login, aprire **Appuntamenti** (`/appuntamenti`), scegliere una giornata,
+selezionare uno slot libero e il tipo di visita, quindi premere **Richiedi appuntamento**.
+Sono disponibili pesata/BMI, elaborazione dieta, revisione dieta e consulenza alimentare.
+La ricevuta mostra numero, data e stato **Richiesto**: non equivale alla conferma dello
+studio. La stessa pagina mostra esclusivamente gli appuntamenti dell'utente corrente.
+
+| API autenticate | Operazione |
+| --- | --- |
+| GET /api/appointments/available-slots?from=...&to=... | Slot futuri, abilitati e non prenotati; massimo 31 giorni |
+| POST /api/appointments | Prenotazione con `slotId`, `version` dello slot e `type` |
+| GET /api/appointments/me | Appuntamenti personali ordinati per data decrescente |
+
+Il backend ricava l'utente esclusivamente dal JWT. ID utente o stato eventualmente
+inviati nel JSON non vengono applicati: una nuova prenotazione nasce come `REQUESTED`.
+Una transazione aggiorna lo slot a non disponibile e salva l'appuntamento. L'update
+dello slot con `@Version` viene eseguito prima dell'inserimento: due utenti sullo stesso
+slot, oppure utente e ADMIN in concorrenza, non possono entrambi modificare la medesima
+versione. Il conflitto restituisce 409 e Angular aggiorna le disponibilità e l'elenco.
+
+La migrazione V4 sostituisce l'unicità assoluta dell'appuntamento per slot con un
+indice univoco sui soli appuntamenti non annullati. Questo conserva lo storico degli
+annullati e permette in futuro di offrire nuovamente uno slot. Il flusso di annullamento
+e quello di conferma/completamento dello studio non sono ancora implementati.
+
+Per provare il flusso: creare uno slot futuro come ADMIN, uscire, accedere con un
+account USER e prenotarlo. L'utente vede la richiesta nell'elenco personale; tornando
+come ADMIN, lo slot risulta **Prenotato** e non è modificabile dalla pagina disponibilità.
+Al riavvio del backend Flyway applica le nuove migrazioni al database configurato.
+
 ## Verifiche
 
 ```powershell
@@ -110,7 +176,7 @@ le migrazioni PostgreSQL. Coprono registrazione, hashing, login, duplicati,
 registrazioni concorrenti, validazione, autorizzazione e token non validi/scaduti.
 
 Per ripeterli con migrazioni reali, usare **esclusivamente un database PostgreSQL
-di test dedicato**: i test eliminano gli utenti all'inizio di ogni caso.
+di test dedicato**: i test eliminano utenti, slot e appuntamenti di prova.
 
 ```powershell
 .\mvnw.cmd test "-Dspring.datasource.url=jdbc:postgresql://localhost:5432/nutritional_expert_test" "-Dspring.datasource.username=TEST_USER" "-Dspring.datasource.password=TEST_PASSWORD" "-Dspring.flyway.enabled=true" "-Dspring.jpa.hibernate.ddl-auto=validate"
@@ -127,3 +193,10 @@ errori di login, ripristino/scadenza della sessione e logout. Per la modifica pr
 verificano precompilazione, annullamento, salvataggio, errori e risposte successive
 al logout. I test backend verificano persistenza, aggiornamenti parziali, rimozione
 del telefono, validazione e isolamento tra utenti, preservando credenziali e ruolo.
+
+Disponibilità e prenotazioni sono coperte da test per permessi, date, sovrapposizioni,
+versioni obsolete, prenotazioni simultanee, conflitto utente/ADMIN, riutilizzo dopo
+annullamento e isolamento degli elenchi personali. Il test del vincolo PostgreSQL
+contro sovrapposizioni simultanee è saltato su H2: eseguire la suite PostgreSQL per
+verificare anche quel caso e le migrazioni. Il frontend verifica creazione slot,
+guard ADMIN, invio prenotazione, selezione obbligatoria, conflitti, errori e sessione scaduta.

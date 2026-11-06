@@ -1,0 +1,69 @@
+<section class="appointments">
+  <p class="eyebrow">IL TUO PERCORSO</p>
+  <h1>Prenota una visita</h1>
+  <p>Scegli un giorno, un orario disponibile e il tipo di visita.</p>
+  <p class="timezone">Orari nel fuso del browser: <strong>{{ timeZone }}</strong>.</p>
+  @if (receipt(); as result) {
+    <div class="success" role="status">
+      <strong>Richiesta di prenotazione inviata · n. {{ result.id }}</strong>
+      <p>{{ typeLabel(result.type) }} · {{ result.startTime | date:'dd/MM/yyyy HH:mm' }} – {{ result.endTime | date:'HH:mm' }}</p>
+      <p>Stato: Richiesto. La visita è in attesa di conferma da parte dello studio.</p>
+    </div>
+  }
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  <div class="date-picker">
+    <label for="booking-day">Giorno della visita</label>
+    <input id="booking-day" type="date" [value]="day()" [min]="minDay" [disabled]="busy()"
+      (change)="changeDay($any($event.target).value)">
+    <button type="button" class="secondary" [disabled]="loading() || busy()" (click)="error.set(''); loadSlots()">Aggiorna disponibilità</button>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="book()" [attr.aria-busy]="busy()" novalidate>
+    <fieldset [disabled]="busy() || loading()">
+      <legend>1. Scegli un orario</legend>
+      @if (loading()) { <p role="status">Caricamento disponibilità…</p> }
+      @else if (!slots().length) { <p>Nessuno slot disponibile. Prova a scegliere un altro giorno.</p> }
+      <div class="slot-grid">
+        @for (slot of slots(); track slot.id) {
+          <label class="slot">
+            <input type="radio" formControlName="slotId" [value]="'' + slot.id">
+            <span>{{ slot.startTime | date:'HH:mm' }} – {{ slot.endTime | date:'HH:mm' }}</span>
+          </label>
+        }
+      </div>
+      @if (form.controls.slotId.touched && form.controls.slotId.invalid && slots().length) {
+        <p class="field-error">Seleziona un orario.</p>
+      }
+      <label class="type-label" for="visit-type">2. Tipo di visita</label>
+      <select id="visit-type" formControlName="type" aria-describedby="type-error"
+        [attr.aria-invalid]="form.controls.type.touched && form.controls.type.invalid">
+        <option value="">Seleziona una visita</option>
+        @for (type of visitTypes; track type.value) { <option [value]="type.value">{{ type.label }}</option> }
+      </select>
+      @if (form.controls.type.touched && form.controls.type.invalid) {
+        <p id="type-error" class="field-error">Seleziona il tipo di visita.</p>
+      }
+      <button class="primary submit" type="submit" [disabled]="!slots().length">{{ busy() ? 'Invio in corso…' : 'Richiedi appuntamento' }}</button>
+    </fieldset>
+  </form>
+  <section class="my-appointments">
+    <div class="list-heading"><h2>I miei appuntamenti</h2>
+      <button type="button" class="secondary" [disabled]="loadingAppointments() || busy()" (click)="loadAppointments()">Aggiorna elenco</button>
+    </div>
+    @if (listError()) { <p class="error" role="alert">{{ listError() }}</p> }
+    @else if (loadingAppointments()) { <p role="status">Caricamento appuntamenti…</p> }
+    @else if (!appointments().length) { <p>Non hai ancora appuntamenti.</p> }
+    @else {
+      <ul>
+        @for (appointment of appointments(); track appointment.id) {
+          <li>
+            <div><strong>{{ typeLabel(appointment.type) }}</strong>
+              <p>{{ appointment.startTime | date:'dd/MM/yyyy HH:mm' }} – {{ appointment.endTime | date:'HH:mm' }}</p>
+              <small>Appuntamento n. {{ appointment.id }}</small>
+            </div>
+            <span class="badge">{{ statuses[appointment.status] }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</section>

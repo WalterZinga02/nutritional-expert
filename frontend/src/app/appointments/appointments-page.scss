@@ -1,0 +1,29 @@
+.appointments { max-width:900px; margin:3rem auto; padding:0 1.5rem; }
+h1 { font:400 clamp(2rem,4vw,2.8rem) Georgia,serif; margin:1rem 0; }
+h2 { font-size:1.4rem; }
+p, small { color:var(--muted); line-height:1.6; }
+.timezone { font-size:.85rem; }
+.date-picker, .list-heading { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin:1.5rem 0; }
+.list-heading { justify-content:space-between; }
+form, .my-appointments { border:1px solid var(--line); background:white; border-radius:16px; padding:1.5rem; margin:1.5rem 0; }
+fieldset { border:0; padding:0; margin:0; min-width:0; }
+legend, .type-label { font-weight:600; }
+.slot-grid { display:flex; flex-wrap:wrap; gap:.75rem; margin:1rem 0; }
+.slot { display:flex; gap:.5rem; align-items:center; border:1px solid #bac7be; padding:.8rem; border-radius:8px; cursor:pointer; }
+.slot:has(input:checked) { border-color:var(--green); background:#e4f2e8; }
+input[type=radio] { accent-color:var(--green); }
+input[type=date], select { min-height:44px; border:1px solid #bac7be; padding:.7rem; border-radius:8px; color:var(--ink); background:white; font:inherit; }
+.type-label { display:block; margin:1.5rem 0 .6rem; }
+select { width:100%; max-width:420px; }
+.submit { display:block; margin-top:1.5rem; }
+.secondary { background:transparent; color:var(--green); border:1px solid var(--green); border-radius:8px; padding:.7rem 1rem; cursor:pointer; }
+.error, .success { padding:1rem; border-radius:8px; }
+.error { color:#852727; background:#fff0ee; }
+.success { color:var(--green); background:#e4f2e8; }
+.success p { color:inherit; margin:.4rem 0; }
+.field-error { color:#a33232; font-size:.9rem; }
+ul { margin:0; padding:0; list-style:none; }
+li { display:flex; gap:1rem; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding:1rem 0; }
+li p { margin:.4rem 0; }
+.badge { border-radius:20px; background:#eef2eb; padding:.4rem .8rem; font-size:.85rem; }
+@media(max-width:550px) { .appointments { margin:2rem auto; } form, .my-appointments { padding:1rem; } li { align-items:flex-start; flex-direction:column; } }

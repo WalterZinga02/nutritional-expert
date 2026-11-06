@@ -10,5 +10,7 @@ export const routes: Routes = [
     canActivate: [authGuard], title: 'Il mio account | Nutritional Expert' },
   { path: 'admin/disponibilita', loadComponent: () => import('./admin/availability-page').then(m => m.AvailabilityPage),
     canActivate: [adminGuard], title: 'Disponibilità studio | Nutritional Expert' },
+  { path: 'appuntamenti', loadComponent: () => import('./appointments/appointments-page').then(m => m.AppointmentsPage),
+    canActivate: [authGuard], title: 'Appuntamenti | Nutritional Expert' },
   { path: '**', redirectTo: 'login' }
 ];
