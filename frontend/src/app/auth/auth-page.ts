@@ -1,3 +1,4 @@
+/* Pagina condivisa tra login e registrazione: valida il modulo, invia la richiesta e mostra errori o apre il profilo. */
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -32,10 +33,12 @@ export class AuthPage {
   }, { validators: control => this.registering &&
     control.get('password')?.value !== control.get('confirmPassword')?.value ? { passwordMismatch: true } : null });
 
+  /** Mostra l’errore di un campo solo dopo che è stato toccato. */
   invalid(name: keyof typeof this.form.controls): boolean {
     const control = this.form.controls[name];
     return control.touched && control.invalid;
   }
+  /** Valida il modulo, evita invii doppi e sceglie login o registrazione in base alla rotta. */
   submit(): void {
     if (this.busy()) return;
     this.form.markAllAsTouched();

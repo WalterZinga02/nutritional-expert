@@ -1,3 +1,4 @@
+/* Regole degli slot: intervalli futuri e senza sovrapposizioni, modifica solo di slot non prenotati e controllo della versione. */
 package it.unical.nutritionalexpert.availability;
 
 import java.time.Duration;
@@ -13,10 +14,12 @@ import it.unical.nutritionalexpert.availability.dto.*;
 public class AvailabilityService {
     private final AvailabilitySlotRepository slots;
     private final SlotAppointments appointments;
+    /** Riceve da Spring le dipendenze necessarie, senza crearle manualmente. */
     public AvailabilityService(AvailabilitySlotRepository slots, SlotAppointments appointments) {
         this.slots = slots;
         this.appointments = appointments;
     }
+    /** Valida un intervallo di massimo 31 giorni e costruisce i DTO con il flag booked. */
     @Transactional(readOnly = true)
     public List<SlotResponse> list(Instant from, Instant to) {
         if (!to.isAfter(from) || Duration.between(from, to).compareTo(Duration.ofDays(31)) > 0)
@@ -25,6 +28,7 @@ public class AvailabilityService {
         return slots.findByStartTimeLessThanAndEndTimeGreaterThanOrderByStartTimeAsc(to, from)
                 .stream().map(slot -> SlotResponse.from(slot, booked.contains(slot.getId()))).toList();
     }
+    /** Controlla date, durata e sovrapposizioni, poi salva la nuova entità slot. */
     @Transactional
     public SlotResponse create(CreateSlotRequest request) {
         if (!request.startTime().isAfter(Instant.now()) || !request.endTime().isAfter(request.startTime()))
@@ -35,6 +39,7 @@ public class AvailabilityService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esiste già uno slot in questo intervallo, anche se disabilitato.");
         return SlotResponse.from(slots.saveAndFlush(new AvailabilitySlot(request.startTime(), request.endTime())), false);
     }
+    /** Controlla versione, orario e prenotazioni prima di cambiare disponibilità e sincronizzare JPA. */
     @Transactional
     public SlotResponse update(long id, UpdateAvailabilityRequest request) {
         AvailabilitySlot slot = slots.findById(id).orElseThrow(() ->

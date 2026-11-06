@@ -2,6 +2,9 @@
 
 Piattaforma web per i clienti di uno studio di nutrizione.
 
+Per orientarsi tra file, funzioni e flussi frontend/backend, consultare la
+[guida al codice](docs/GUIDA_CODICE.md). I sorgenti contengono commenti sintetici in italiano.
+
 ## Stato attuale
 
 Registrazione e login collegati tra Angular e Spring Boot, visualizzazione e modifica del profilo personale e logout.

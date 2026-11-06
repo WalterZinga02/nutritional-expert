@@ -1,3 +1,4 @@
+<!-- Struttura condivisa: intestazione, collegamenti in base alla sessione e router-outlet per la pagina attiva. -->
 <header>
   <a class="brand" [routerLink]="auth.user() ? '/account' : '/login'"><span aria-hidden="true">✳</span> Nutritional Expert</a>
   <nav aria-label="Navigazione principale">

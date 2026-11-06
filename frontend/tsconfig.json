@@ -1,3 +1,4 @@
+/* Opzioni comuni TypeScript/Angular e riferimenti alle configurazioni di applicazione e test. */
 /* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
 /* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
 {

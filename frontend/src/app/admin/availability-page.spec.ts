@@ -1,3 +1,4 @@
+/* Test automatici di availability-page.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -13,7 +14,9 @@ describe('ADMIN availability', () => {
   let auth: AuthService;
   const slot = { id: 4, startTime: '2030-06-02T09:00:00Z', endTime: '2030-06-02T09:30:00Z',
     available: true, booked: false, version: 3 };
+  // Individua la richiesta HTTP simulata da completare con i dati del test.
   const listRequest = () => http.expectOne(request => request.url === '/api/admin/availability' && request.method === 'GET');
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(async () => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ imports: [AvailabilityPage], providers: [
@@ -29,8 +32,10 @@ describe('ADMIN availability', () => {
     listRequest().flush([]);
     await fixture.whenStable();
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { fixture.destroy(); http.verify(); auth.logout(); sessionStorage.clear(); });
 
+  // Verifica conversione degli orari locali, creazione e aggiornamento agenda.
   it('creates slots using local date conversion and refreshes the agenda', () => {
     const page = fixture.componentInstance;
     page.changeDay('2030-06-02');
@@ -47,6 +52,7 @@ describe('ADMIN availability', () => {
     expect(page.success()).toBe('Slot creato.');
     expect(page.slots().length).toBe(1);
   });
+  // Verifica il blocco di intervalli temporali non validi prima dell’invio.
   it('rejects invalid time order without sending a creation request', () => {
     const page = fixture.componentInstance;
     page.changeDay('2030-06-02');
@@ -56,6 +62,7 @@ describe('ADMIN availability', () => {
     expect(page.error()).toContain('fine successiva');
     http.expectNone(request => request.method === 'POST');
   });
+  // Verifica invio della versione e ricaricamento dopo 409.
   it('sends the displayed version and refreshes on conflict', () => {
     const page = fixture.componentInstance;
     page.toggle(slot);
@@ -66,12 +73,14 @@ describe('ADMIN availability', () => {
     expect(page.error()).toBe('Slot modificato.');
     expect(page.slots()[0].version).toBe(4);
   });
+  // Verifica il blocco dei comandi per slot passati o prenotati.
   it('does not modify a booked or past slot', () => {
     const page = fixture.componentInstance;
     page.toggle({ ...slot, booked: true });
     page.toggle({ ...slot, startTime: '2000-01-01T09:00:00Z' });
     http.expectNone(request => request.method === 'PATCH');
   });
+  // Verifica accesso ADMIN e reindirizzamento di USER e visitatori anonimi.
   it('guard admits ADMIN, redirects USER and redirects anonymous visitors', () => {
     const runGuard = () => TestBed.runInInjectionContext(() => adminGuard({} as never, {} as never));
     expect(runGuard()).toBe(true);

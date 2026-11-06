@@ -1,3 +1,4 @@
+/* Gestisce agenda e transizioni ADMIN: controlla stato, orario e versione prima di aggiornare la visita nella transazione. */
 package it.unical.nutritionalexpert.appointment;
 
 import java.time.*;
@@ -11,8 +12,10 @@ import it.unical.nutritionalexpert.appointment.dto.*;
 @Service
 public class AdminAppointmentService {
     private final AppointmentRepository appointments;
+    /** Riceve da Spring le dipendenze necessarie, senza crearle manualmente. */
     public AdminAppointmentService(AppointmentRepository appointments) { this.appointments = appointments; }
 
+    /** Controlla il limite di 31 giorni, legge le entità e costruisce i DTO con i contatti dei clienti. */
     @Transactional(readOnly = true)
     public List<AdminAppointmentResponse> list(Instant from, Instant to, AppointmentStatus status) {
         if (!to.isAfter(from) || Duration.between(from, to).compareTo(Duration.ofDays(31)) > 0)
@@ -20,6 +23,7 @@ public class AdminAppointmentService {
         return appointments.findForAdmin(from, to, status).stream().map(AdminAppointmentResponse::from).toList();
     }
 
+    /** Controlla versione e transizione temporale consentita; il flush rileva anche modifiche concorrenti dell’utente. */
     @Transactional
     public AdminAppointmentResponse update(long id, UpdateAppointmentStatusRequest request) {
         Appointment appointment = appointments.findById(id).orElseThrow(() ->

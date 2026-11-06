@@ -1,3 +1,4 @@
+/* Stili globali: colori, tipografia e regole comuni a tutta l’applicazione. */
 :root { --green:#285c47; --ink:#203a2d; --muted:#5e7065; --line:#dce3db; font-family:'Segoe UI',Arial,sans-serif; color:var(--ink); background:#f6f8f2; }
 body { margin:0; } * { box-sizing:border-box; } a { color:var(--green); } button,input { font:inherit; }
 .primary { background:var(--green); color:white; border:0; border-radius:8px; padding:.85rem 1.3rem; font-weight:600; cursor:pointer; }

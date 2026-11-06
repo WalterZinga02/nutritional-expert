@@ -1,3 +1,4 @@
+/* Protegge le pagine personali nella navigazione Angular; senza sessione valida rimanda al login. La sicurezza effettiva resta sul backend. */
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';

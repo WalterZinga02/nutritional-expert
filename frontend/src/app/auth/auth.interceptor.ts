@@ -1,3 +1,4 @@
+/* Intercetta le chiamate alle API protette: aggiunge Authorization: Bearer e chiude la sessione quando il backend risponde 401. */
 import { inject } from '@angular/core';
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';

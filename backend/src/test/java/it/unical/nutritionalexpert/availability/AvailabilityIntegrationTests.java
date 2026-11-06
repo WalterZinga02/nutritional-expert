@@ -1,3 +1,4 @@
+/* Test integrati degli slot: permessi ADMIN, date, sovrapposizioni, prenotazioni e aggiornamenti concorrenti. */
 package it.unical.nutritionalexpert.availability;
 
 import java.time.Instant;
@@ -33,6 +34,7 @@ class AvailabilityIntegrationTests {
     private long userId;
     private Instant start;
 
+    // Prepara utenti, token e dati iniziali isolati per il test.
     @BeforeEach void prepare() {
         clean();
         User adminUser = users.saveAndFlush(new User("admin@example.test", "unused", "Admin", "Test", null, UserRole.ADMIN));
@@ -42,24 +44,29 @@ class AvailabilityIntegrationTests {
         userId = ordinary.getId();
         start = Instant.now().plusSeconds(86400).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     }
+    // Pulisce i dati di test rispettando le dipendenze tra tabelle.
     @AfterEach void clean() {
         jdbc.update("DELETE FROM appointment");
         slots.deleteAll();
         users.deleteAll();
     }
+    // Invia una richiesta di creazione slot e verifica il codice HTTP atteso.
     private MvcResult create(Instant from, Instant to, int expected) throws Exception {
         return mvc.perform(post("/api/admin/availability").header("Authorization", "Bearer " + admin)
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("startTime", from, "endTime", to))))
                 .andExpect(status().is(expected)).andReturn();
     }
+    // Estrae l’identificativo dalla risposta JSON.
     private long id(MvcResult result) throws Exception {
         return json.readTree(result.getResponse().getContentAsString()).get("id").asLong();
     }
+    // Invia una modifica ADMIN con la versione indicata per verificare stato o disponibilità.
     private MvcResult update(long id, boolean available, long version, int expected) throws Exception {
         return mvc.perform(patch("/api/admin/availability/" + id).header("Authorization", "Bearer " + admin)
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("available", available, "version", version))))
                 .andExpect(status().is(expected)).andReturn();
     }
+    // Verifica che le operazioni sugli slot siano riservate agli ADMIN.
     @Test void permissionsProtectAllOperations() throws Exception {
         for (String credential : new String[] {"", user}) {
             int expected = credential.isEmpty() ? 401 : 403;
@@ -78,6 +85,7 @@ class AvailabilityIntegrationTests {
         }
         assertThat(slots.count()).isZero();
     }
+    // Verifica creazione, ordinamento e ammissibilità degli slot adiacenti.
     @Test void createsListsInTimeOrderAndAllowsAdjacentSlots() throws Exception {
         create(start.plusSeconds(1800), start.plusSeconds(3600), 201);
         create(start, start.plusSeconds(1800), 201);
@@ -90,6 +98,7 @@ class AvailabilityIntegrationTests {
                 .param("from", start.plusSeconds(3600).toString()).param("to", start.plusSeconds(7200).toString()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     }
+    // Verifica il rifiuto di date e parametri non validi.
     @Test void rejectsInvalidTimesAndQueryParameters() throws Exception {
         create(start, start, 400);
         create(start, start.minusSeconds(1), 400);
@@ -104,6 +113,7 @@ class AvailabilityIntegrationTests {
                 .andExpect(status().isBadRequest());
         assertThat(slots.count()).isZero();
     }
+    // Verifica che anche gli slot disabilitati impediscano sovrapposizioni.
     @Test void rejectsOverlapIncludingDisabledSlots() throws Exception {
         long id = id(create(start, start.plusSeconds(1800), 201));
         create(start.plusSeconds(900), start.plusSeconds(2700), 409);
@@ -111,6 +121,7 @@ class AvailabilityIntegrationTests {
         update(id, false, 0, 200);
         create(start, start.plusSeconds(1800), 409);
     }
+    // Verifica incremento di versione e rifiuto delle richieste obsolete.
     @Test void updatesVersionAndRejectsStaleRequests() throws Exception {
         long id = id(create(start, start.plusSeconds(1800), 201));
         MvcResult disabled = update(id, false, 0, 200);
@@ -123,6 +134,7 @@ class AvailabilityIntegrationTests {
         mvc.perform(patch("/api/admin/availability/" + id).header("Authorization", "Bearer " + admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"available\":false}")).andExpect(status().isBadRequest());
     }
+    // Verifica i limiti di modifica degli slot in base a orario e prenotazioni.
     @Test void refusesPastOrBookedSlotsAndAllowsCancelledBooking() throws Exception {
         AvailabilitySlot past = slots.saveAndFlush(new AvailabilitySlot(Instant.now().minusSeconds(3600), Instant.now().minusSeconds(1800)));
         update(past.getId(), false, 0, 409);
@@ -135,6 +147,7 @@ class AvailabilityIntegrationTests {
         jdbc.update("UPDATE appointment SET status = 'CANCELLED' WHERE slot_id = ?", id);
         update(id, false, 0, 200);
     }
+    // Verifica che due modifiche dello stesso slot non si sovrascrivano.
     @Test void simultaneousUpdatesDoNotOverwriteEachOther() throws Exception {
         long id = id(create(start, start.plusSeconds(1800), 201));
         assertConcurrent(() -> mvc.perform(patch("/api/admin/availability/" + id).header("Authorization", "Bearer " + admin)
@@ -142,6 +155,7 @@ class AvailabilityIntegrationTests {
                 .andReturn().getResponse().getStatus(), 200);
         assertThat(slots.findById(id).orElseThrow().getVersion()).isEqualTo(1);
     }
+    // Verifica su PostgreSQL il vincolo anti-sovrapposizione anche tra inserimenti concorrenti.
     @Test void postgresPreventsOverlapsBetweenConcurrentCreates() throws Exception {
         try (var connection = jdbc.getDataSource().getConnection()) {
             Assumptions.assumeTrue(connection.getMetaData().getDatabaseProductName().equals("PostgreSQL"));
@@ -156,6 +170,7 @@ class AvailabilityIntegrationTests {
         }, 201);
         assertThat(slots.count()).isEqualTo(1);
     }
+    // Avvia operazioni simultanee e verifica un successo e un conflitto.
     private void assertConcurrent(Callable<Integer> operation, int success) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);

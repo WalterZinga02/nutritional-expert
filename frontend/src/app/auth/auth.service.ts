@@ -1,3 +1,4 @@
+/* Gestisce JWT e profilo nel frontend: login, registrazione, sessionStorage, ripristino, modifica profilo e logout locale. */
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -27,15 +28,19 @@ export class AuthService {
   private expiresAt = 0;
   private expiryTimer?: ReturnType<typeof setTimeout>;
 
+  /** Restituisce il JWT solo finché non è scaduto; viene usato da guard e interceptor. */
   accessToken(): string | null {
     return this.expiresAt > Date.now() ? this.token : null;
   }
+  /** Invia le credenziali e registra la sessione restituita dal backend. */
   login(data: Credentials) {
     return this.http.post<AuthResponse>('/api/auth/login', data).pipe(tap(response => this.accept(response)));
   }
+  /** Invia i dati di iscrizione e registra la sessione del nuovo account. */
   register(data: Registration) {
     return this.http.post<AuthResponse>('/api/auth/register', data).pipe(tap(response => this.accept(response)));
   }
+  /** Legge sessionStorage e verifica il token recuperando il profilo da /api/auth/me; in caso di errore svuota la sessione. */
   async restore(): Promise<void> {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -55,6 +60,7 @@ export class AuthService {
       this.clear();
     }
   }
+  /** Invia i campi modificabili e aggiorna il profilo locale solo se la sessione è ancora la stessa. */
   updateProfile(data: ProfileUpdate) {
     const sessionToken = this.token;
     return this.http.patch<UserProfile>('/api/auth/me', data).pipe(tap(user => {
@@ -62,10 +68,12 @@ export class AuthService {
       if (sessionToken && this.accessToken() === sessionToken) this.currentUser.set(user);
     }));
   }
+  /** Cancella la sessione locale e apre il login; il JWT stateless non viene revocato sul server. */
   logout(expired = false): void {
     this.clear();
     void this.router.navigate(['/login'], { queryParams: expired ? { expired: '1' } : {} });
   }
+  /** Memorizza token e scadenza, aggiorna il profilo in memoria e programma il logout automatico. */
   private accept(response: AuthResponse): void {
     this.token = response.accessToken;
     this.expiresAt = Date.parse(response.expiresAt);
@@ -77,10 +85,12 @@ export class AuthService {
     } catch { /* The current in-memory session still works when storage is disabled. */ }
     this.scheduleExpiry();
   }
+  /** Programma un timer per terminare la sessione alla scadenza del JWT. */
   private scheduleExpiry(): void {
     clearTimeout(this.expiryTimer);
     this.expiryTimer = setTimeout(() => this.logout(true), Math.max(0, this.expiresAt - Date.now()));
   }
+  /** Elimina timer, token, profilo e dati persistiti nella sessione della scheda. */
   private clear(): void {
     clearTimeout(this.expiryTimer);
     this.token = null;

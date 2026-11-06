@@ -1,3 +1,4 @@
+/* Pagina utente: ricerca slot, invia prenotazioni, mostra lo storico e gestisce la conferma di annullamento. */
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,6 +8,7 @@ import { finalize, Subscription } from 'rxjs';
 import { AvailabilitySlot } from '../admin/availability.service';
 import { Appointment, AppointmentType, AppointmentsService, VISIT_TYPES, STATUS_LABELS } from './appointments.service';
 
+/** Restituisce il giorno locale nel formato richiesto dall’input date. */
 function today(): string {
   const date = new Date();
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -43,13 +45,16 @@ export class AppointmentsPage {
     type: ['', Validators.required]
   });
 
+  /** Carica disponibilità e storico personale all’apertura della pagina. */
   constructor() { this.loadSlots(); this.loadAppointments(); }
+  /** Cambia giorno e azzera la scelta dello slot attraverso il ricaricamento. */
   changeDay(value: string): void {
     if (this.busy() || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
     this.day.set(value);
     this.error.set('');
     this.loadSlots();
   }
+  /** Annulla richieste precedenti e carica gli slot del giorno, evitando di mantenere una selezione obsoleta. */
   loadSlots(): void {
     this.slotRequest?.unsubscribe();
     this.form.controls.slotId.reset('');
@@ -63,6 +68,7 @@ export class AppointmentsPage {
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)))
       .subscribe({ next: slots => this.slots.set(slots), error: error => this.error.set(this.message(error)) });
   }
+  /** Ricarica lo storico e scarta eventuali conferme di annullamento basate su dati precedenti. */
   loadAppointments(): void {
     this.pendingCancel.set(null);
     this.appointmentsRequest?.unsubscribe();
@@ -72,6 +78,7 @@ export class AppointmentsPage {
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loadingAppointments.set(false)))
       .subscribe({ next: appointments => this.appointments.set(appointments), error: error => this.listError.set(this.message(error)) });
   }
+  /** Valida slot e tipo, invia la prenotazione e aggiorna ricevuta, disponibilità e storico. */
   book(): void {
     if (this.busy() || this.loading()) return;
     this.form.markAllAsTouched();
@@ -102,16 +109,19 @@ export class AppointmentsPage {
         }
       } });
   }
+  /** Mostra l’azione solo per visite future richieste o confermate; il backend ne verifica anche il proprietario. */
   canCancel(appointment: Appointment): boolean {
     return (appointment.status === 'REQUESTED' || appointment.status === 'CONFIRMED')
       && Date.parse(appointment.startTime) > Date.now();
   }
+  /** Apre la conferma con i dettagli della visita senza ancora modificarla. */
   requestCancellation(appointment: Appointment): void {
     if (this.busy() || !this.canCancel(appointment)) return;
     this.error.set('');
     this.cancellationMessage.set('');
     this.pendingCancel.set(appointment);
   }
+  /** Conferma l’annullamento via API e ricarica i dati dopo successo o conflitto. */
   cancel(): void {
     const appointment = this.pendingCancel();
     if (this.busy() || !appointment) return;
@@ -131,9 +141,11 @@ export class AppointmentsPage {
         }
       } });
   }
+  /** Converte il valore del tipo visita nella sua etichetta italiana. */
   typeLabel(type: AppointmentType): string {
     return this.visitTypes.find(item => item.value === type)?.label ?? type;
   }
+  /** Estrae il messaggio del backend o fornisce un testo per gli errori di rete. */
   private message(error: HttpErrorResponse): string {
     return error.status === 0 ? 'Il servizio non è raggiungibile. Riprova.'
       : error.error?.message || 'Operazione non riuscita. Riprova.';

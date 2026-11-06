@@ -1,3 +1,4 @@
+/* Componente radice: ospita navigazione e pagina corrente; legge AuthService per mostrare i collegamenti corretti. */
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from './auth/auth.service';

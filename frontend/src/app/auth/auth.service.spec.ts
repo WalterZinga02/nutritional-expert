@@ -1,3 +1,4 @@
+/* Test automatici di auth.service.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -9,9 +10,11 @@ describe('Authentication session', () => {
   let service: AuthService;
   let http: HttpTestingController;
   const user = { id: 1, email: 'mario@example.it', firstName: 'Mario', lastName: 'Rossi', phone: null, role: 'USER' as const };
+  // Costruisce una risposta di login simulata con scadenza futura.
   const response = (): AuthResponse => ({ accessToken: 'test-token', tokenType: 'Bearer',
     expiresAt: new Date(Date.now() + 1800000).toISOString(), user });
 
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(() => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ providers: [
@@ -21,8 +24,10 @@ describe('Authentication session', () => {
     http = TestBed.inject(HttpTestingController);
     vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { http.verify(); service.logout(); sessionStorage.clear(); });
 
+  // Verifica salvataggio di token e scadenza senza memorizzare il profilo.
   it('stores the session after login without persisting profile data', () => {
     service.login({ email: user.email, password: 'Password123!' }).subscribe();
     const request = http.expectOne('/api/auth/login');
@@ -33,6 +38,7 @@ describe('Authentication session', () => {
     expect(sessionStorage.getItem('nutritional-expert.session')).not.toContain('mario');
   });
 
+  // Verifica ripristino del profilo tramite /api/auth/me.
   it('restores the profile using the protected endpoint', async () => {
     sessionStorage.setItem('nutritional-expert.session', JSON.stringify(response()));
     const restored = service.restore();
@@ -43,6 +49,7 @@ describe('Authentication session', () => {
     expect(service.user()).toEqual(user);
   });
 
+  // Verifica eliminazione di sessioni scadute o corrotte.
   it('rejects expired or corrupt stored sessions', async () => {
     sessionStorage.setItem('nutritional-expert.session', JSON.stringify({ ...response(), expiresAt: '2000-01-01' }));
     await service.restore();
@@ -53,6 +60,7 @@ describe('Authentication session', () => {
     expect(sessionStorage.getItem('nutritional-expert.session')).toBeNull();
   });
 
+  // Verifica logout e ritorno al login dopo un 401.
   it('clears a rejected token and redirects to login', async () => {
     sessionStorage.setItem('nutritional-expert.session', JSON.stringify(response()));
     const restored = service.restore();
@@ -63,6 +71,7 @@ describe('Authentication session', () => {
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/login'], { queryParams: { expired: '1' } });
   });
 
+  // Verifica la scadenza automatica della sessione.
   it('expires the session automatically', async () => {
     vi.useFakeTimers();
     try {

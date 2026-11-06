@@ -1,3 +1,4 @@
+/* Configura password e sicurezza stateless: verifica JWT prima dei controller e riserva /api/admin/** al ruolo ADMIN. */
 package it.unical.nutritionalexpert.config;
 
 import org.springframework.context.annotation.Bean;
@@ -21,11 +22,13 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 
 @Configuration
 public class SecurityConfig {
+    /** Fornisce l’algoritmo PBKDF2 per creare e confrontare gli hash delle password. */
     @Bean
     PasswordEncoder passwordEncoder() {
         return Pbkdf2PasswordEncoder.defaultsForSpringSecurity_v5_8();
     }
 
+    /** Decodifica il segreto Base64 e richiede almeno 32 byte per la firma HMAC. */
     @Bean
     SecretKey jwtKey(@Value("${app.jwt.secret}") String secret) {
         byte[] bytes = Base64.getDecoder().decode(secret);
@@ -33,11 +36,13 @@ public class SecurityConfig {
         return new SecretKeySpec(bytes, "HmacSHA256");
     }
 
+    /** Crea il componente che firma i token usando la chiave condivisa HS256. */
     @Bean
     JwtEncoder jwtEncoder(SecretKey key) {
         return NimbusJwtEncoder.withSecretKey(key).algorithm(MacAlgorithm.HS256).build();
     }
 
+    /** Verifica firma, emittente e validità temporale dei JWT ricevuti. */
     @Bean
     JwtDecoder jwtDecoder(SecretKey key, @Value("${app.jwt.issuer}") String issuer) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
@@ -46,6 +51,7 @@ public class SecurityConfig {
         return decoder;
     }
 
+    /** Definisce accessi pubblici/protetti, ruolo ADMIN e risposte 401/403, senza sessioni HTTP sul server. */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();

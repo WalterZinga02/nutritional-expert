@@ -1,3 +1,4 @@
+/* Endpoint pubblico per verificare che il backend risponda, senza richiedere autenticazione. */
 package it.unical.nutritionalexpert.common;
 
 import java.time.Instant;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/public")
 public class HealthController {
 
+    /** Risponde con stato UP, nome applicazione e ora; non esegue una diagnosi del database. */
     @GetMapping("/health")
     Map<String, Object> health() {
         return Map.of(

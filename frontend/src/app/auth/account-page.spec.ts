@@ -1,3 +1,4 @@
+/* Test automatici di account-page.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
@@ -12,6 +13,7 @@ describe('Profile editing', () => {
   let fixture: ComponentFixture<AccountPage>;
   const user = { id: 1, email: 'mario@example.it', firstName: 'Mario', lastName: 'Rossi', phone: '3331234567', role: 'USER' as const };
 
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(async () => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ imports: [AccountPage], providers: [
@@ -28,8 +30,10 @@ describe('Profile editing', () => {
     fixture = TestBed.createComponent(AccountPage);
     await fixture.whenStable();
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { http.verify(); auth.logout(); sessionStorage.clear(); });
 
+  // Verifica precompilazione e chiusura della modifica senza salvataggio.
   it('prefills the form and cancels without saving', () => {
     fixture.nativeElement.querySelector('button.primary').click();
     fixture.detectChanges();
@@ -46,6 +50,7 @@ describe('Profile editing', () => {
     expect(fixture.componentInstance.form.controls.firstName.value).toBe('Mario');
   });
 
+  // Verifica invio autenticato e aggiornamento del profilo mostrato.
   it('saves through the protected API and updates the displayed profile', () => {
     const page = fixture.componentInstance;
     page.startEditing();
@@ -66,6 +71,7 @@ describe('Profile editing', () => {
     expect(auth.accessToken()).toBe('profile-token');
   });
 
+  // Verifica validazione locale prima della chiamata HTTP.
   it('rejects empty names and invalid phone without making a request', () => {
     const page = fixture.componentInstance;
     page.startEditing();
@@ -76,6 +82,7 @@ describe('Profile editing', () => {
     http.expectNone('/api/auth/me');
   });
 
+  // Verifica che un errore conservi il modulo e consenta un nuovo tentativo.
   it('keeps the saved profile and edited inputs after an error and permits retry', () => {
     const page = fixture.componentInstance;
     page.startEditing();
@@ -93,6 +100,7 @@ describe('Profile editing', () => {
     expect(auth.user()?.firstName).toBe('Anna');
   });
 
+  // Verifica che una risposta tardiva non ripristini la sessione dopo il logout.
   it('does not restore the session if a save response arrives after logout', () => {
     fixture.componentInstance.startEditing();
     fixture.componentInstance.save();

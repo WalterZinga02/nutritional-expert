@@ -1,3 +1,4 @@
+/* Mappa URL e componenti caricati su richiesta; authGuard e adminGuard regolano la navigazione, mentre il backend protegge le API. */
 import { Routes } from '@angular/router';
 import { authGuard } from './auth/auth.guard';
 import { adminGuard } from './admin/admin.guard';

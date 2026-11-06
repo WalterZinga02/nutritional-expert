@@ -1,3 +1,4 @@
+/* DTO di creazione slot: contiene inizio e fine; le annotazioni e il service verificano date e coerenza dell’intervallo. */
 package it.unical.nutritionalexpert.availability.dto;
 
 import java.time.Instant;

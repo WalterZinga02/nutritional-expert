@@ -1,3 +1,4 @@
+/* DTO di prenotazione: ID e versione dello slot, più tipo visita. Il proprietario viene ricavato dal JWT, non dal JSON. */
 package it.unical.nutritionalexpert.appointment.dto;
 
 import jakarta.validation.constraints.*;

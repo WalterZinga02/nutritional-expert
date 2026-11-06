@@ -1,3 +1,4 @@
+/* Test integrati delle API di autenticazione e profilo: validazione, password, JWT, permessi e registrazioni concorrenti. */
 package it.unical.nutritionalexpert.auth;
 
 import java.time.Instant;
@@ -29,8 +30,10 @@ class AuthIntegrationTests {
     @Autowired PasswordEncoder passwords;
     @Autowired JwtEncoder encoder;
 
+    // Svuota gli utenti prima di ciascun caso di autenticazione.
     @BeforeEach void cleanUsers() { users.deleteAll(); }
 
+    // Invia una registrazione di prova tramite MockMvc.
     private MvcResult register(String email) throws Exception {
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("email", email, "password", "Password123!",
@@ -42,10 +45,12 @@ class AuthIntegrationTests {
                 .andExpect(jsonPath("$.tokenType").value("Bearer")).andReturn();
     }
 
+    // Estrae il JWT dalla risposta JSON di prova.
     private String token(MvcResult result) throws Exception {
         return json.readTree(result.getResponse().getContentAsString()).get("accessToken").asString();
     }
 
+    // Verifica hash della password e identità del proprietario nel token di registrazione.
     @Test void registrationHashesPasswordAndTokenIdentifiesUser() throws Exception {
         String token = token(register("Mario@Example.it"));
         User user = users.findByEmailIgnoreCase("mario@example.it").orElseThrow();
@@ -59,6 +64,7 @@ class AuthIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    // Verifica il login con email che differiscono per spazi o maiuscole.
     @Test void loginIgnoresEmailCaseAndWhitespace() throws Exception {
         register("mario@example.it");
         MvcResult result = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -68,6 +74,7 @@ class AuthIntegrationTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Mario"));
     }
 
+    // Verifica che un’email duplicata produca 409.
     @Test void duplicateEmailHasConflictResponse() throws Exception {
         register("mario@example.it");
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
@@ -77,6 +84,7 @@ class AuthIntegrationTests {
         assertThat(users.count()).isEqualTo(1);
     }
 
+    // Verifica che dati non validi non creino utenti.
     @Test void invalidInputsAreRejectedWithoutCreatingUser() throws Exception {
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("email", "invalid", "password", "short",
@@ -86,6 +94,7 @@ class AuthIntegrationTests {
         assertThat(users.count()).isZero();
     }
 
+    // Avvia registrazioni concorrenti per verificare l’unicità dell’email.
     @Test void concurrentRegistrationsCannotCreateDuplicateAccounts() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
@@ -113,6 +122,7 @@ class AuthIntegrationTests {
         }
     }
 
+    // Verifica la stessa risposta per password errata ed email sconosciuta.
     @Test void wrongPasswordAndUnknownEmailHaveSameError() throws Exception {
         register("mario@example.it");
         for (String email : new String[] {"mario@example.it", "unknown@example.it"}) {
@@ -123,6 +133,7 @@ class AuthIntegrationTests {
         }
     }
 
+    // Verifica il rifiuto dei token assenti, invalidi, alterati, scaduti o con emittente errato.
     @Test void missingMalformedTamperedExpiredAndWrongIssuerTokensAreRejected() throws Exception {
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
         String valid = token(register("mario@example.it"));
@@ -136,6 +147,7 @@ class AuthIntegrationTests {
         }
     }
 
+    // Verifica che un token non dia accesso al profilo di un account eliminato.
     @Test void deletedAccountCannotRetrieveProfile() throws Exception {
         String token = token(register("mario@example.it"));
         users.deleteAll();
@@ -143,6 +155,7 @@ class AuthIntegrationTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    // Verifica che la modifica del profilo salvi solo i campi autorizzati dell’utente autenticato.
     @Test void profileUpdatePersistsOnlyAllowedFieldsForAuthenticatedUser() throws Exception {
         String token = token(register("owner@example.it"));
         register("other@example.it");
@@ -168,6 +181,7 @@ class AuthIntegrationTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Anna"));
     }
 
+    // Verifica campi omessi invariati e rimozione esplicita del telefono.
     @Test void partialProfileUpdatePreservesOmittedFieldsAndCanRemovePhone() throws Exception {
         String token = token(register("owner@example.it"));
         mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
@@ -182,6 +196,7 @@ class AuthIntegrationTests {
         assertThat(users.findByEmailIgnoreCase("owner@example.it").orElseThrow().getPhone()).isNull();
     }
 
+    // Verifica che un profilo non valido non alteri i dati salvati.
     @Test void invalidProfileUpdateDoesNotChangeStoredData() throws Exception {
         String token = token(register("owner@example.it"));
         mvc.perform(patch("/api/auth/me").header("Authorization", "Bearer " + token)
@@ -192,6 +207,7 @@ class AuthIntegrationTests {
         assertThat(users.findByEmailIgnoreCase("owner@example.it").orElseThrow().getFirstName()).isEqualTo("Mario");
     }
 
+    // Verifica autenticazione e presenza dell’account nella modifica profilo.
     @Test void profileUpdateRequiresValidTokenAndExistingAccount() throws Exception {
         mvc.perform(patch("/api/auth/me").contentType(MediaType.APPLICATION_JSON).content("{\"firstName\":\"Anna\"}"))
                 .andExpect(status().isUnauthorized());
@@ -202,6 +218,7 @@ class AuthIntegrationTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    // Genera un token firmato con emittente e scadenza scelti per verificare la validazione.
     private String signedToken(String issuer, Instant expiresAt) {
         var claims = JwtClaimsSet.builder().issuer(issuer).subject("1")
                 .issuedAt(Instant.now().minusSeconds(600)).expiresAt(expiresAt).claim("role", "USER").build();

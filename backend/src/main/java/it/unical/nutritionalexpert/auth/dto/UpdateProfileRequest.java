@@ -1,3 +1,4 @@
+/* DTO di modifica parziale del profilo: campi null restano invariati, telefono vuoto rimuove il numero. Non permette di cambiare ruolo o credenziali. */
 package it.unical.nutritionalexpert.auth.dto;
 
 import jakarta.validation.constraints.Pattern;
@@ -11,12 +12,14 @@ public record UpdateProfileRequest(
         @Pattern(regexp = "(?s).*\\S.*", message = "Inserisci il cognome.") String lastName,
         @Pattern(regexp = "^$|^[+0-9][0-9 .()\\-]{5,29}$", message = "Inserisci un numero di telefono valido.")
         String phone) {
+    /** Rimuove gli spazi ai margini dei campi anagrafici prima della validazione, preservando i valori null. */
     public UpdateProfileRequest {
         firstName = firstName == null ? null : firstName.strip();
         lastName = lastName == null ? null : lastName.strip();
         phone = phone == null ? null : phone.strip();
     }
 
+    /** Oscura i dati del DTO quando viene convertito in testo, evitando credenziali o dati personali nei log. */
     @Override
     public String toString() { return "UpdateProfileRequest[redacted]"; }
 }

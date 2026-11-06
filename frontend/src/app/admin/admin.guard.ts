@@ -1,3 +1,4 @@
+/* Consente la navigazione nelle pagine studio solo a un ADMIN autenticato; le stesse autorizzazioni sono verificate dal backend. */
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../auth/auth.service';

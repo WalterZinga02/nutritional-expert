@@ -1,3 +1,4 @@
+/* Mostra il profilo corrente e gestisce il modulo di modifica di nome, cognome e telefono. */
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -23,6 +24,7 @@ export class AccountPage {
     phone: ['', [Validators.pattern(/^$|^[+0-9][0-9 .()\-]{5,29}$/)]]
   });
 
+  /** Precompila il modulo con il profilo corrente e apre la modifica. */
   startEditing(): void {
     const user = this.auth.user();
     if (!user || this.busy()) return;
@@ -31,15 +33,18 @@ export class AccountPage {
     this.success.set('');
     this.editing.set(true);
   }
+  /** Chiude la modifica senza inviare dati al backend. */
   cancel(): void {
     if (this.busy()) return;
     this.editing.set(false);
     this.error.set('');
   }
+  /** Indica se un campo già toccato contiene errori. */
   invalid(name: keyof typeof this.form.controls): boolean {
     const control = this.form.controls[name];
     return control.touched && control.invalid;
   }
+  /** Valida e invia il profilo; mostra conferma oppure errori generali e dei singoli campi. */
   save(): void {
     if (this.busy()) return;
     const value = this.form.getRawValue();

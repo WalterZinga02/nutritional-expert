@@ -1,3 +1,4 @@
+/* DTO di annullamento personale: contiene la versione dell’appuntamento per rilevare dati del client non aggiornati. */
 package it.unical.nutritionalexpert.appointment.dto;
 
 import jakarta.validation.constraints.Min;

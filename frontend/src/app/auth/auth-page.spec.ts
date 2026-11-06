@@ -1,3 +1,4 @@
+/* Test automatici di auth-page.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
@@ -10,6 +11,7 @@ import { AccountPage } from './account-page';
 
 describe('Authentication pages', () => {
   let http: HttpTestingController;
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(() => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ providers: [
@@ -17,14 +19,17 @@ describe('Authentication pages', () => {
     ] });
     http = TestBed.inject(HttpTestingController);
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { http.verify(); TestBed.inject(AuthService).logout(); });
 
+  // Verifica che il visitatore anonimo venga rimandato al login.
   it('redirects an anonymous visitor away from the account', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/account', AuthPage);
     expect(harness.routeNativeElement?.textContent).toContain('Bentornato');
   });
 
+  // Verifica che password e conferma diverse blocchino la registrazione.
   it('does not submit mismatched passwords', async () => {
     const harness = await RouterTestingHarness.create();
     const page = await harness.navigateByUrl('/registrazione', AuthPage);
@@ -36,6 +41,7 @@ describe('Authentication pages', () => {
     http.expectNone('/api/auth/register');
   });
 
+  // Verifica errore di login e possibilità di riprovare.
   it('shows the login error and permits another attempt', async () => {
     const harness = await RouterTestingHarness.create();
     const page = await harness.navigateByUrl('/login', AuthPage);
@@ -49,6 +55,7 @@ describe('Authentication pages', () => {
     expect(harness.routeNativeElement?.querySelector('[role="alert"]')?.textContent).toContain('Email o password non corrette.');
   });
 
+  // Verifica registrazione, accesso al profilo e logout.
   it('registers, opens the protected account and clears the session on logout', async () => {
     const harness = await RouterTestingHarness.create();
     const page = await harness.navigateByUrl('/registrazione', AuthPage);

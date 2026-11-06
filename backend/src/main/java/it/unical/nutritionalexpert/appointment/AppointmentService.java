@@ -1,3 +1,4 @@
+/* Logica delle prenotazioni personali: controlla proprietario e disponibilità, prenota atomicamente e annulla con locking ottimistico. */
 package it.unical.nutritionalexpert.appointment;
 
 import java.time.Instant;
@@ -19,6 +20,7 @@ public class AppointmentService {
     private final SlotAppointments slotAppointments;
     private final UserRepository users;
 
+    /** Riceve da Spring le dipendenze necessarie, senza crearle manualmente. */
     public AppointmentService(AppointmentRepository appointments, AvailabilitySlotRepository slots,
                               SlotAppointments slotAppointments, UserRepository users) {
         this.appointments = appointments;
@@ -26,8 +28,10 @@ public class AppointmentService {
         this.slotAppointments = slotAppointments;
         this.users = users;
     }
+    /** Esclude slot passati, disabilitati o già prenotati, dopo aver verificato l’account e l’intervallo. */
     @Transactional(readOnly = true)
     public List<SlotResponse> available(String subject, Instant from, Instant to) {
+        /** Ricava l’account dal subject del token e rifiuta con 401 account assenti o ID non validi. */
         currentUser(subject);
         if (!to.isAfter(from) || Duration.between(from, to).compareTo(Duration.ofDays(31)) > 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seleziona un intervallo valido di massimo 31 giorni.");
@@ -37,6 +41,7 @@ public class AppointmentService {
                 .filter(slot -> slot.isAvailable() && slot.getStartTime().isAfter(now) && !booked.contains(slot.getId()))
                 .map(slot -> SlotResponse.from(slot, false)).toList();
     }
+    /** Occupa lo slot con @Version prima di inserire la visita: entrambe le scritture riescono o vengono annullate insieme. */
     @Transactional
     public AppointmentResponse book(String subject, BookAppointmentRequest request) {
         User user = currentUser(subject);
@@ -53,12 +58,14 @@ public class AppointmentService {
         Appointment appointment = appointments.saveAndFlush(new Appointment(user, slot, request.type()));
         return AppointmentResponse.from(appointment);
     }
+    /** Legge le entità del proprietario e le trasforma nei DTO dello storico personale. */
     @Transactional(readOnly = true)
     public List<AppointmentResponse> mine(String subject) {
         User user = currentUser(subject);
         return appointments.findByUserIdOrderBySlotStartTimeDescIdDesc(user.getId()).stream()
                 .map(AppointmentResponse::from).toList();
     }
+    /** Verifica proprietario, versione e visita futura attiva, poi imposta CANCELLED mantenendo storico e slot disabilitato. */
     @Transactional
     public AppointmentResponse cancel(String subject, Long id, CancelAppointmentRequest request) {
         User user = currentUser(subject);
@@ -74,6 +81,7 @@ public class AppointmentService {
         appointments.flush();
         return AppointmentResponse.from(appointment);
     }
+    /** Ricava l’account dal subject del token e rifiuta con 401 account assenti o ID non validi. */
     private User currentUser(String subject) {
         try {
             return users.findById(Long.parseLong(subject)).orElseThrow(() ->

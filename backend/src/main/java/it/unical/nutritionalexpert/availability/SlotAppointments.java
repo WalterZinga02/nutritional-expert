@@ -1,3 +1,4 @@
+/* Query SQL di sola lettura condivise dalle agende: individua gli slot con appuntamenti non annullati. */
 package it.unical.nutritionalexpert.availability;
 
 import java.time.Instant;
@@ -10,12 +11,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class SlotAppointments {
     private final JdbcTemplate jdbc;
+    /** Riceve da Spring le dipendenze necessarie, senza crearle manualmente. */
     public SlotAppointments(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    /** Controlla se lo slot ha almeno una visita con stato diverso da CANCELLED. */
     public boolean isBooked(long slotId) {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM appointment WHERE slot_id = ? AND status <> 'CANCELLED'",
                 Long.class, slotId) > 0;
     }
+    /** Restituisce gli ID degli slot occupati nell’intervallo, con un’unica query. */
     public Set<Long> bookedInRange(Instant from, Instant to) {
         return new HashSet<>(jdbc.queryForList("""
                 SELECT a.slot_id FROM appointment a JOIN availability_slot s ON s.id = a.slot_id

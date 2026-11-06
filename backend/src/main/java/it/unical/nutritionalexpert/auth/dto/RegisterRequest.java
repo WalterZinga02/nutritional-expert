@@ -1,3 +1,4 @@
+/* DTO del JSON di registrazione: normalizza i campi anagrafici e definisce la validazione; il ruolo USER viene scelto dal service. */
 package it.unical.nutritionalexpert.auth.dto;
 
 import jakarta.validation.constraints.Email;
@@ -27,6 +28,7 @@ public record RegisterRequest(
                 regexp = "^$|^[+0-9][0-9 .()\\-]{5,29}$",
                 message = "Phone number format is invalid")
         String phone) {
+    /** Rimuove gli spazi ai margini dei campi anagrafici prima della validazione, preservando i valori null. */
     public RegisterRequest {
         email = email == null ? null : email.strip();
         firstName = firstName == null ? null : firstName.strip();
@@ -34,6 +36,7 @@ public record RegisterRequest(
         phone = phone == null ? null : phone.strip();
     }
 
+    /** Oscura i dati del DTO quando viene convertito in testo, evitando credenziali o dati personali nei log. */
     @Override
     public String toString() { return "RegisterRequest[redacted]"; }
 }

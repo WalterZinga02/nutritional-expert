@@ -1,3 +1,4 @@
+/* Configura router, HttpClient e interceptor JWT; ripristina la sessione prima di completare l’avvio. */
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';

@@ -1,3 +1,4 @@
+/* Test automatici di appointments-page.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -15,7 +16,9 @@ describe('User appointments', () => {
     endTime: new Date(Date.now() + 88200000).toISOString(), available: true, booked: false, version: 2 };
   const appointment: Appointment = { id: 5, slotId: 8, startTime: slot.startTime, endTime: slot.endTime,
     type: 'DIET_REVIEW', status: 'REQUESTED', createdAt: new Date().toISOString(), version: 0 };
+  // Individua la richiesta HTTP simulata da completare con i dati del test.
   const slotsRequest = () => http.expectOne(request => request.url === '/api/appointments/available-slots');
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(async () => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ imports: [AppointmentsPage], providers: [
@@ -32,8 +35,10 @@ describe('User appointments', () => {
     http.expectOne('/api/appointments/me').flush([]);
     await fixture.whenStable();
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { fixture.destroy(); http.verify(); auth.logout(); sessionStorage.clear(); });
 
+  // Verifica conferma dell’annullamento, JWT, versione e ricaricamento storico.
   it('confirms cancellation, sends JWT and version and refreshes history', () => {
     const page = fixture.componentInstance;
     page.appointments.set([appointment]);
@@ -56,6 +61,7 @@ describe('User appointments', () => {
     expect(fixture.nativeElement.textContent).toContain('Appuntamento n. 5 annullato.');
     expect(fixture.nativeElement.querySelector('.cancel-appointment')).toBeNull();
   });
+  // Verifica ricaricamento dopo conflitto e nuovo tentativo dopo errore server.
   it('refreshes on cancellation conflict and allows retry on server error', () => {
     const page = fixture.componentInstance;
     page.requestCancellation(appointment);
@@ -71,6 +77,7 @@ describe('User appointments', () => {
     expect(page.cancellationMessage()).toBe('');
     expect(page.error()).toBe('Appuntamento modificato.');
   });
+  // Verifica azioni consentite e chiusura della conferma senza invio.
   it('hides cancellation for past and terminal visits and lets users dismiss confirmation', () => {
     const page = fixture.componentInstance;
     expect(page.canCancel({ ...appointment, status: 'CONFIRMED' })).toBe(true);
@@ -83,12 +90,14 @@ describe('User appointments', () => {
     page.cancel();
     http.expectNone('/api/appointments/5/cancel');
   });
+  // Verifica che slot e tipo visita siano obbligatori.
   it('requires a slot and visit type before sending', () => {
     fixture.componentInstance.book();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.field-error').length).toBe(2);
     http.expectNone('/api/appointments');
   });
+  // Verifica prenotazione autenticata con versione, ricevuta e storico.
   it('books with the token and current version, then displays the receipt and personal list', () => {
     const page = fixture.componentInstance;
     page.form.setValue({ slotId: '8', type: 'DIET_REVIEW' });
@@ -108,6 +117,7 @@ describe('User appointments', () => {
     expect(fixture.nativeElement.querySelector('li').textContent).toContain('Revisione dieta');
     expect(page.form.controls.slotId.value).toBe('');
   });
+  // Verifica ricaricamento disponibilità dopo conflitto senza falsa ricevuta.
   it('refreshes availability on conflict without showing a successful booking', () => {
     const page = fixture.componentInstance;
     page.form.setValue({ slotId: '8', type: 'DIET_REVIEW' });
@@ -121,6 +131,7 @@ describe('User appointments', () => {
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('Slot non più disponibile');
     expect(page.form.controls.slotId.value).toBe('');
   });
+  // Verifica conservazione del modulo dopo errore e possibilità di riprovare.
   it('preserves the form on service failure and allows retry', () => {
     const page = fixture.componentInstance;
     page.form.setValue({ slotId: '8', type: 'DIET_REVIEW' });
@@ -133,6 +144,7 @@ describe('User appointments', () => {
     slotsRequest().flush([]);
     http.expectOne('/api/appointments/me').flush([appointment]);
   });
+  // Verifica reset dello slot e interruzione delle letture al cambio giorno.
   it('clears the selected slot when changing days and cancels obsolete availability requests', () => {
     const page = fixture.componentInstance;
     page.form.controls.slotId.setValue('8');
@@ -144,6 +156,7 @@ describe('User appointments', () => {
     expect(page.form.controls.slotId.value).toBe('');
     expect(page.slots()).toEqual([]);
   });
+  // Verifica logout quando la prenotazione riceve 401.
   it('clears the session if booking is rejected with 401', () => {
     const page = fixture.componentInstance;
     page.form.setValue({ slotId: '8', type: 'DIET_REVIEW' });

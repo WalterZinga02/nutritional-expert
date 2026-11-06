@@ -1,3 +1,4 @@
+/* Test automatici di admin-appointments-page.ts: verificano comportamento, chiamate HTTP simulate e gestione degli errori senza un backend reale. */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -14,7 +15,9 @@ describe('ADMIN appointment management', () => {
   const appointment: AdminAppointment = { id: 8, slotId: 3, type: 'DIET_REVIEW', status: 'REQUESTED', version: 2,
     startTime: new Date(Date.now() + 86400000).toISOString(), endTime: new Date(Date.now() + 88200000).toISOString(),
     customer: { firstName: 'Mario', lastName: 'Rossi', email: 'mario@example.test', phone: null } };
+  // Individua la richiesta HTTP simulata da completare con i dati del test.
   const list = () => http.expectOne(request => request.url === '/api/admin/appointments' && request.method === 'GET');
+  // Prepara un ambiente isolato e le dipendenze simulate per ogni caso.
   beforeEach(async () => {
     sessionStorage.clear();
     TestBed.configureTestingModule({ imports: [AdminAppointmentsPage], providers: [
@@ -30,8 +33,10 @@ describe('ADMIN appointment management', () => {
     list().flush([appointment]);
     await fixture.whenStable();
   });
+  // Verifica le richieste attese e ripulisce lo stato usato dal test.
   afterEach(() => { fixture.destroy(); http.verify(); auth.logout(); sessionStorage.clear(); });
 
+  // Verifica contatti del cliente e conferma prima di modificare lo stato.
   it('shows customer details and requires confirmation before applying a change', () => {
     expect(fixture.nativeElement.textContent).toContain('Mario Rossi');
     const page = fixture.componentInstance;
@@ -51,6 +56,7 @@ describe('ADMIN appointment management', () => {
     expect(page.pending()).toBeNull();
     expect(page.success()).toContain('Confermato');
   });
+  // Verifica filtro stato e interruzione delle letture diventate obsolete.
   it('filters by status and cancels obsolete requests on day changes', () => {
     const page = fixture.componentInstance;
     page.changeFilter('CONFIRMED');
@@ -61,6 +67,7 @@ describe('ADMIN appointment management', () => {
     list().flush([]);
     expect(page.appointments()).toEqual([]);
   });
+  // Verifica riepilogo dell’annullamento e possibilità di tornare indietro.
   it('shows cancellation consequences and can go back without mutation', () => {
     const page = fixture.componentInstance;
     page.choose(appointment, 'CANCELLED');
@@ -70,6 +77,7 @@ describe('ADMIN appointment management', () => {
     expect(page.pending()).toBeNull();
     http.expectNone('/api/admin/appointments/8/status');
   });
+  // Verifica completamento dopo la fine e assenza di azioni sugli stati definitivi.
   it('allows completion only after the end and no actions on terminal states', () => {
     const page = fixture.componentInstance;
     expect(page.allowed({ ...appointment, status: 'CONFIRMED' }, 'COMPLETED')).toBe(false);
@@ -79,6 +87,7 @@ describe('ADMIN appointment management', () => {
       expect(page.allowed({ ...appointment, status }, 'CONFIRMED')).toBe(false);
     }
   });
+  // Verifica ricaricamento dopo conflitto senza falsa conferma di successo.
   it('refreshes stale data after a conflict without showing success', () => {
     const page = fixture.componentInstance;
     page.choose(appointment, 'CONFIRMED');
@@ -91,6 +100,7 @@ describe('ADMIN appointment management', () => {
     expect(page.error()).toBe('Appuntamento modificato.');
     expect(page.busy()).toBe(false);
   });
+  // Verifica la possibilità di riprovare dopo un errore del servizio.
   it('permits retry after a service error', () => {
     const page = fixture.componentInstance;
     page.choose(appointment, 'CONFIRMED');

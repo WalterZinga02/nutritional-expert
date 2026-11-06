@@ -1,3 +1,4 @@
+/* Pagina ADMIN delle visite: filtri, azioni ammesse, conferma delle modifiche e ricaricamento dopo conflitti. */
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -6,6 +7,7 @@ import { finalize, Subscription } from 'rxjs';
 import { AppointmentStatus, AppointmentType, STATUS_LABELS, VISIT_TYPES } from '../appointments/appointments.service';
 import { AdminAppointment, AdminAppointmentsService } from './admin-appointments.service';
 
+/** Restituisce il giorno locale per inizializzare il filtro data. */
 function today(): string {
   const date = new Date();
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -32,18 +34,23 @@ export class AdminAppointmentsPage {
   readonly statusOptions: AppointmentStatus[] = ['REQUESTED', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
   readonly timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  /** Carica le visite del giorno all’apertura della pagina. */
   constructor() { this.load(); }
+  /** Aggiorna il giorno e ricarica l’agenda. */
   changeDay(value: string): void {
     if (this.busy() || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
     this.day.set(value);
     this.refresh();
   }
+  /** Aggiorna il filtro stato e ricarica l’agenda. */
   changeFilter(value: string): void {
     if (this.busy()) return;
     this.filter.set(value);
     this.refresh();
   }
+  /** Azzera messaggi e azioni in attesa prima di ricaricare. */
   refresh(): void { this.error.set(''); this.success.set(''); this.pending.set(null); this.load(); }
+  /** Interrompe la lettura precedente e richiede le visite per giorno e stato selezionati. */
   load(): void {
     this.request?.unsubscribe();
     const from = new Date(this.day() + 'T00:00:00');
@@ -56,18 +63,21 @@ export class AdminAppointmentsPage {
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)))
       .subscribe({ next: data => this.appointments.set(data), error: error => this.error.set(this.message(error)) });
   }
+  /** Determina le azioni mostrabili in base a stato e orario; il backend ripete la verifica. */
   allowed(appointment: AdminAppointment, status: AppointmentStatus): boolean {
     if (status === 'CANCELLED') return appointment.status === 'REQUESTED' || appointment.status === 'CONFIRMED';
     if (status === 'CONFIRMED') return appointment.status === 'REQUESTED' && Date.parse(appointment.startTime) > Date.now();
     if (status === 'COMPLETED') return appointment.status === 'CONFIRMED' && Date.parse(appointment.endTime) <= Date.now();
     return false;
   }
+  /** Prepara il riepilogo di conferma senza inviare ancora la modifica. */
   choose(appointment: AdminAppointment, status: AppointmentStatus): void {
     if (this.busy() || this.loading() || !this.allowed(appointment, status)) return;
     this.pending.set({ appointment, status });
     this.error.set('');
     this.success.set('');
   }
+  /** Invia il cambio di stato confermato e ricarica dopo successo o conflitto di versione. */
   apply(): void {
     const pending = this.pending();
     if (!pending || this.busy()) return;
@@ -92,7 +102,9 @@ export class AdminAppointmentsPage {
         }
       });
   }
+  /** Traduce il codice del tipo visita nella relativa etichetta. */
   typeLabel(type: AppointmentType): string { return VISIT_TYPES.find(item => item.value === type)?.label ?? type; }
+  /** Restituisce un messaggio leggibile per errori HTTP o di connessione. */
   private message(error: HttpErrorResponse): string {
     return error.status === 0 ? 'Il servizio non è raggiungibile. Riprova.'
       : error.error?.message || 'Operazione non riuscita. Riprova.';

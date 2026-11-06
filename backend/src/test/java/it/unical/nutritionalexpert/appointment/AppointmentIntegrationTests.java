@@ -1,3 +1,4 @@
+/* Test integrati delle prenotazioni utente: proprietà, disponibilità e contesa dello slot tra utenti o con l’ADMIN. */
 package it.unical.nutritionalexpert.appointment;
 
 import java.time.Instant;
@@ -34,6 +35,7 @@ class AppointmentIntegrationTests {
     private Instant start;
     private AvailabilitySlot slot;
 
+    // Prepara utenti, token e dati iniziali isolati per il test.
     @BeforeEach void prepare() {
         clean();
         first = users.saveAndFlush(new User("first@example.test", "unused", "First", "Test", null, UserRole.USER));
@@ -45,13 +47,16 @@ class AppointmentIntegrationTests {
         start = Instant.now().plusSeconds(86400).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
         slot = slots.saveAndFlush(new AvailabilitySlot(start, start.plusSeconds(1800)));
     }
+    // Pulisce i dati di test rispettando le dipendenze tra tabelle.
     @AfterEach void clean() { appointments.deleteAll(); slots.deleteAll(); users.deleteAll(); }
+    // Invia una prenotazione di prova con token, slot e versione indicati.
     private MvcResult book(String token, long id, long version, String type) throws Exception {
         return mvc.perform(post("/api/appointments").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
                         "slotId", id, "version", version, "type", type, "userId", second.getId(), "status", "CONFIRMED"))))
                 .andReturn();
     }
+    // Verifica che prenotazione e storico usino il proprietario del JWT.
     @Test void booksForTokenOwnerAndReturnsOnlyTheirAppointments() throws Exception {
         MvcResult result = book(firstToken, slot.getId(), 0, "DIET_REVIEW");
         assertThat(result.getResponse().getStatus()).isEqualTo(201);
@@ -70,6 +75,7 @@ class AppointmentIntegrationTests {
         assertThat(book(firstToken, slot.getId(), 0, "DIET_REVIEW").getResponse().getStatus()).isEqualTo(409);
         assertThat(appointments.count()).isEqualTo(1);
     }
+    // Verifica che la ricerca escluda slot passati, disabilitati o occupati.
     @Test void availableListOmitsPastDisabledAndBookedSlots() throws Exception {
         slots.saveAndFlush(new AvailabilitySlot(Instant.now().minusSeconds(3600), Instant.now().minusSeconds(1800)));
         AvailabilitySlot disabled = new AvailabilitySlot(start.plusSeconds(3600), start.plusSeconds(5400));
@@ -83,6 +89,7 @@ class AppointmentIntegrationTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(slot.getId()));
     }
+    // Verifica che non si possano prenotare slot non più validi o con versione obsoleta.
     @Test void refusesUnavailablePastMissingAndStaleSlots() throws Exception {
         assertThat(book(firstToken, slot.getId(), 8, "DIET_REVIEW").getResponse().getStatus()).isEqualTo(409);
         slot.setAvailable(false);
@@ -93,6 +100,7 @@ class AppointmentIntegrationTests {
         assertThat(book(firstToken, Long.MAX_VALUE, 0, "DIET_REVIEW").getResponse().getStatus()).isEqualTo(404);
         assertThat(appointments.count()).isZero();
     }
+    // Verifica payload non validi e prenotazioni senza autenticazione.
     @Test void rejectsInvalidPayloadAndUnauthenticatedRequests() throws Exception {
         for (String payload : List.of("{}", "{\"slotId\":-1,\"version\":-1,\"type\":\"DIET_REVIEW\"}",
                 "{\"slotId\":1,\"version\":0,\"type\":\"INVALID\"}")) {
@@ -108,12 +116,14 @@ class AppointmentIntegrationTests {
         assertThat(slots.findById(slot.getId()).orElseThrow().isAvailable()).isTrue();
         assertThat(appointments.count()).isZero();
     }
+    // Verifica che un account eliminato non acceda alle prenotazioni.
     @Test void deletedAccountCannotBookOrReadAppointments() throws Exception {
         users.deleteById(first.getId());
         assertThat(book(firstToken, slot.getId(), 0, "DIET_REVIEW").getResponse().getStatus()).isEqualTo(401);
         mvc.perform(get("/api/appointments/me").header("Authorization", "Bearer " + firstToken)).andExpect(status().isUnauthorized());
         assertThat(slots.findById(slot.getId()).orElseThrow().isAvailable()).isTrue();
     }
+    // Verifica che solo una delle prenotazioni concorrenti dello stesso slot riesca.
     @Test void simultaneousBookingsHaveOnlyOneWinner() throws Exception {
         List<Integer> result = race(
                 () -> book(firstToken, slot.getId(), 0, "DIET_CREATION").getResponse().getStatus(),
@@ -122,6 +132,7 @@ class AppointmentIntegrationTests {
         assertThat(appointments.count()).isEqualTo(1);
         assertThat(slots.findById(slot.getId()).orElseThrow().getVersion()).isEqualTo(1);
     }
+    // Verifica il conflitto tra prenotazione utente e disabilitazione ADMIN dello stesso slot.
     @Test void bookingConflictsWithAdminDisablingTheSameSlot() throws Exception {
         List<Integer> result = race(
                 () -> book(firstToken, slot.getId(), 0, "WEIGHING_AND_BMI").getResponse().getStatus(),
@@ -133,12 +144,14 @@ class AppointmentIntegrationTests {
         assertThat(slots.findById(slot.getId()).orElseThrow().isAvailable()).isFalse();
         assertThat(slots.findById(slot.getId()).orElseThrow().getVersion()).isEqualTo(1);
     }
+    // Verifica che lo storico annullato non impedisca di prenotare uno slot riaperto.
     @Test void cancelledAppointmentDoesNotPreventRebookingAnAvailableSlot() throws Exception {
         appointments.saveAndFlush(new Appointment(first, slot, AppointmentType.DIET_REVIEW));
         jdbc.update("UPDATE appointment SET status = 'CANCELLED' WHERE slot_id = ?", slot.getId());
         assertThat(book(secondToken, slot.getId(), 0, "DIET_CREATION").getResponse().getStatus()).isEqualTo(201);
         assertThat(appointments.count()).isEqualTo(2);
     }
+    // Sincronizza due operazioni su thread separati e raccoglie i codici HTTP risultanti.
     private List<Integer> race(Callable<Integer> a, Callable<Integer> b) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);

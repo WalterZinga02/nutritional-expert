@@ -1,3 +1,4 @@
+/* Client HTTP delle prenotazioni personali, con tipi TypeScript per DTO e stati condivisi dalle pagine. */
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { AvailabilitySlot } from '../admin/availability.service';
@@ -20,13 +21,17 @@ export const STATUS_LABELS: Record<AppointmentStatus, string> = {
 @Injectable({ providedIn: 'root' })
 export class AppointmentsService {
   private readonly http = inject(HttpClient);
+  /** Legge gli slot futuri che il backend considera prenotabili. */
   available(from: string, to: string) {
     return this.http.get<AvailabilitySlot[]>('/api/appointments/available-slots', { params: { from, to } });
   }
+  /** Invia ID e versione dello slot con il tipo di visita; l’utente è identificato dal JWT. */
   book(slot: AvailabilitySlot, type: AppointmentType) {
     return this.http.post<Appointment>('/api/appointments', { slotId: slot.id, version: slot.version, type });
   }
+  /** Carica lo storico dell’utente autenticato. */
   mine() { return this.http.get<Appointment[]>('/api/appointments/me'); }
+  /** Invia la versione dell’appuntamento da annullare; proprietà e regole sono controllate dal backend. */
   cancel(appointment: Appointment) {
     return this.http.patch<Appointment>(`/api/appointments/${appointment.id}/cancel`, { version: appointment.version });
   }
