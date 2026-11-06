@@ -1,0 +1,23 @@
+.agenda { max-width:1050px; margin:3rem auto; padding:0 1.5rem; }
+h1 { font:400 clamp(2rem,4vw,2.8rem) Georgia,serif; margin:1rem 0; }
+h2 { font-size:1.3rem; margin:0 0 1rem; }
+p, small { color:var(--muted); line-height:1.6; }
+.timezone { font-size:.85rem; }
+.date-picker { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.5rem 0; }
+.layout { display:grid; grid-template-columns:300px 1fr; gap:1.5rem; align-items:start; }
+form, .schedule { background:white; border:1px solid var(--line); border-radius:16px; padding:1.5rem; }
+form p { font-size:.9rem; }
+fieldset { border:0; padding:0; margin:0; min-width:0; }
+label { display:block; font-weight:600; }
+input { min-height:44px; border:1px solid #bac7be; border-radius:8px; padding:.6rem; background:white; color:var(--ink); }
+form input { width:100%; margin:.5rem 0 1rem; }
+form .primary { width:100%; }
+.secondary { background:transparent; border:1px solid var(--green); color:var(--green); border-radius:8px; padding:.7rem 1rem; cursor:pointer; }
+button:disabled { cursor:not-allowed; }
+ul { list-style:none; margin:0; padding:0; }
+li { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 0; border-top:1px solid var(--line); }
+.status, small { display:block; margin-top:.35rem; font-size:.85rem; }
+.error, .success { padding:.85rem; border-radius:8px; }
+.error { color:#852727; background:#fff0ee; }
+.success { color:var(--green); background:#e4f2e8; }
+@media(max-width:720px) { .layout { grid-template-columns:1fr; } .agenda { margin:2rem auto; } }

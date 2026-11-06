@@ -1,0 +1,53 @@
+<section class="agenda">
+  <p class="eyebrow">AREA AMMINISTRATORE</p>
+  <h1>Disponibilità dello studio</h1>
+  <p>Crea gli orari delle visite e gestisci gli slot della giornata.</p>
+  <p class="timezone">Orari nel fuso del browser: <strong>{{ timeZone }}</strong>.</p>
+  <div class="date-picker">
+    <label for="agenda-day">Giorno</label>
+    <input id="agenda-day" type="date" [value]="day()" [disabled]="busy()"
+      (change)="changeDay($any($event.target).value)">
+    <button class="secondary" type="button" [disabled]="busy() || loading()" (click)="error.set(''); load()">Aggiorna elenco</button>
+  </div>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (success()) { <p class="success" role="status">{{ success() }}</p> }
+  <div class="layout">
+    <form [formGroup]="form" (ngSubmit)="create()" [attr.aria-busy]="busy()" novalidate>
+      <h2>Nuovo slot</h2>
+      <p>Gli slot non possono sovrapporsi, anche se disabilitati.</p>
+      <fieldset [disabled]="busy() || loading()">
+        <label for="slot-start">Ora di inizio</label>
+        <input id="slot-start" type="time" formControlName="start" required
+          [attr.aria-invalid]="form.controls.start.touched && form.controls.start.invalid">
+        <label for="slot-end">Ora di fine</label>
+        <input id="slot-end" type="time" formControlName="end" required
+          [attr.aria-invalid]="form.controls.end.touched && form.controls.end.invalid">
+        @if (form.touched && form.invalid) { <p class="error" role="alert">Indica entrambi gli orari.</p> }
+        <button class="primary" type="submit">{{ busy() ? 'Attendi…' : 'Crea slot' }}</button>
+      </fieldset>
+    </form>
+    <div class="schedule" [attr.aria-busy]="loading()">
+      <h2>Agenda del giorno</h2>
+      @if (loading()) {
+        <p role="status">Caricamento degli slot…</p>
+      } @else if (!slots().length) {
+        <p>Nessuno slot da mostrare per questa giornata.</p>
+      } @else {
+        <ul>
+          @for (slot of slots(); track slot.id) {
+            <li>
+              <div>
+                <strong>{{ slot.startTime | date:'HH:mm' }} – {{ slot.endTime | date:'HH:mm' }}</strong>
+                <span class="status">{{ slot.booked ? 'Prenotato' : (slot.available ? 'Disponibile' : 'Disabilitato') }}</span>
+                @if (!canChange(slot) && !slot.booked) { <small>Già iniziato</small> }
+              </div>
+              <button type="button" class="secondary" [disabled]="busy() || !canChange(slot)"
+                [attr.aria-label]="(slot.available ? 'Disabilita slot delle ' : 'Riattiva slot delle ') + (slot.startTime | date:'HH:mm')"
+                (click)="toggle(slot)">{{ slot.available ? 'Disabilita' : 'Riattiva' }}</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</section>

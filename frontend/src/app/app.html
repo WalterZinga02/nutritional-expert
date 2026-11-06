@@ -3,6 +3,7 @@
   <nav aria-label="Navigazione principale">
     @if (auth.user()) {
       <a routerLink="/account">Il mio account</a>
+      @if (auth.user()?.role === 'ADMIN') { <a routerLink="/admin/disponibilita">Disponibilità studio</a> }
       <button type="button" (click)="auth.logout()">Esci</button>
     } @else {
       <a routerLink="/login">Accedi</a>
