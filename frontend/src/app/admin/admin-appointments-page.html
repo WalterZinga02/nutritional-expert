@@ -1,0 +1,69 @@
+<section class="admin-appointments">
+  <p class="eyebrow">AREA AMMINISTRATORE</p>
+  <h1>Prenotazioni dello studio</h1>
+  <p>Consulta le visite e aggiorna lo stato degli appuntamenti.</p>
+  <p class="timezone">Orari nel fuso del browser: <strong>{{ timeZone }}</strong>.</p>
+  <div class="filters">
+    <div><label for="admin-visit-day">Giorno della visita</label>
+      <input id="admin-visit-day" type="date" [value]="day()" [disabled]="busy()" (change)="changeDay($any($event.target).value)"></div>
+    <div><label for="admin-visit-status">Stato</label>
+      <select id="admin-visit-status" [value]="filter()" [disabled]="busy()" (change)="changeFilter($any($event.target).value)">
+        <option value="">Tutti gli stati</option>
+        @for (status of statusOptions; track status) { <option [value]="status">{{ statuses[status] }}</option> }
+      </select></div>
+    <button class="secondary" type="button" [disabled]="busy() || loading()" (click)="refresh()">Aggiorna elenco</button>
+  </div>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (success()) { <p class="success" role="status">{{ success() }}</p> }
+  @if (pending(); as action) {
+    <section class="confirmation" aria-labelledby="action-title" [attr.aria-busy]="busy()">
+      <h2 id="action-title">Conferma cambio di stato</h2>
+      <p>Appuntamento n. {{ action.appointment.id }} di {{ action.appointment.customer.firstName }} {{ action.appointment.customer.lastName }}
+        · {{ action.appointment.startTime | date:'dd/MM/yyyy HH:mm' }}.</p>
+      <p>Nuovo stato: <strong>{{ statuses[action.status] }}</strong>.</p>
+      @if (action.status === 'CANCELLED') {
+        <p>L'annullamento è definitivo. Lo slot resterà disabilitato: potrai riattivarlo dalla pagina Disponibilità studio.</p>
+      }
+      @if (action.status === 'COMPLETED') { <p>Una visita completata non potrà più cambiare stato.</p> }
+      <div class="actions">
+        <button type="button" class="primary" [disabled]="busy()" (click)="apply()">{{ busy() ? 'Salvataggio…' : 'Conferma operazione' }}</button>
+        <button type="button" class="secondary" [disabled]="busy()" (click)="pending.set(null)">Indietro</button>
+      </div>
+    </section>
+  }
+  @if (loading()) { <p role="status">Caricamento prenotazioni…</p> }
+  @else if (!error() && !appointments().length) { <p>Nessun appuntamento per il giorno e lo stato selezionati.</p> }
+  <ul>
+    @for (appointment of appointments(); track appointment.id) {
+      <li>
+        <div class="heading">
+          <h2>{{ appointment.startTime | date:'HH:mm' }} – {{ appointment.endTime | date:'HH:mm' }}</h2>
+          <span class="badge">{{ statuses[appointment.status] }}</span>
+        </div>
+        <p><strong>{{ typeLabel(appointment.type) }}</strong> · Appuntamento n. {{ appointment.id }}</p>
+        <dl>
+          <div><dt>Cliente</dt><dd>{{ appointment.customer.firstName }} {{ appointment.customer.lastName }}</dd></div>
+          <div><dt>Email</dt><dd>{{ appointment.customer.email }}</dd></div>
+          <div><dt>Telefono</dt><dd>{{ appointment.customer.phone || 'Non indicato' }}</dd></div>
+        </dl>
+        <div class="actions">
+          @if (allowed(appointment, 'CONFIRMED')) {
+            <button type="button" class="primary" [disabled]="busy()" (click)="choose(appointment, 'CONFIRMED')">Conferma visita</button>
+          }
+          @if (allowed(appointment, 'COMPLETED')) {
+            <button type="button" class="primary" [disabled]="busy()" (click)="choose(appointment, 'COMPLETED')">Segna completata</button>
+          }
+          @if (allowed(appointment, 'CANCELLED')) {
+            <button type="button" class="secondary danger" [disabled]="busy()" (click)="choose(appointment, 'CANCELLED')">Annulla appuntamento</button>
+          }
+        </div>
+        @if (appointment.status === 'CONFIRMED' && !allowed(appointment, 'COMPLETED')) {
+          <small>Potrai segnare la visita come completata dopo l'orario di fine.</small>
+        }
+        @if (appointment.status === 'REQUESTED' && !allowed(appointment, 'CONFIRMED')) {
+          <small>L'orario di inizio è trascorso: la richiesta può essere annullata.</small>
+        }
+      </li>
+    }
+  </ul>
+</section>

@@ -5,6 +5,7 @@
       <a routerLink="/account">Il mio account</a>
       <a routerLink="/appuntamenti">Appuntamenti</a>
       @if (auth.user()?.role === 'ADMIN') { <a routerLink="/admin/disponibilita">Disponibilità studio</a> }
+      @if (auth.user()?.role === 'ADMIN') { <a routerLink="/admin/appuntamenti">Prenotazioni studio</a> }
       <button type="button" (click)="auth.logout()">Esci</button>
     } @else {
       <a routerLink="/login">Accedi</a>

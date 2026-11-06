@@ -12,5 +12,7 @@ export const routes: Routes = [
     canActivate: [adminGuard], title: 'Disponibilità studio | Nutritional Expert' },
   { path: 'appuntamenti', loadComponent: () => import('./appointments/appointments-page').then(m => m.AppointmentsPage),
     canActivate: [authGuard], title: 'Appuntamenti | Nutritional Expert' },
+  { path: 'admin/appuntamenti', loadComponent: () => import('./admin/admin-appointments-page').then(m => m.AdminAppointmentsPage),
+    canActivate: [adminGuard], title: 'Prenotazioni studio | Nutritional Expert' },
   { path: '**', redirectTo: 'login' }
 ];

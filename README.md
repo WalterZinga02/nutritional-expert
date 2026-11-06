@@ -6,7 +6,8 @@ Piattaforma web per i clienti di uno studio di nutrizione.
 
 Registrazione e login collegati tra Angular e Spring Boot, visualizzazione e modifica del profilo personale e logout.
 Sono disponibili anche la gestione degli slot ADMIN e la prenotazione delle visite con elenco personale.
-Homepage dello studio, recensioni, annullamento e gestione degli stati degli appuntamenti sono i prossimi moduli.
+L'ADMIN può consultare le prenotazioni e confermarle, completarle o annullarle.
+Homepage dello studio, recensioni e annullamento da parte dell'utente sono i prossimi moduli.
 
 - Backend: Java 17, Spring Boot, Spring Security, JPA, PostgreSQL e Flyway.
 - Frontend: Angular SPA con form reattivi, rotte protette e messaggi in italiano.
@@ -156,13 +157,45 @@ versione. Il conflitto restituisce 409 e Angular aggiorna le disponibilità e l'
 
 La migrazione V4 sostituisce l'unicità assoluta dell'appuntamento per slot con un
 indice univoco sui soli appuntamenti non annullati. Questo conserva lo storico degli
-annullati e permette in futuro di offrire nuovamente uno slot. Il flusso di annullamento
-e quello di conferma/completamento dello studio non sono ancora implementati.
+annullati e permette di offrire nuovamente uno slot dopo un annullamento e una
+riattivazione esplicita da parte dell'ADMIN. L'annullamento da parte dell'utente
+non è ancora implementato.
 
 Per provare il flusso: creare uno slot futuro come ADMIN, uscire, accedere con un
 account USER e prenotarlo. L'utente vede la richiesta nell'elenco personale; tornando
 come ADMIN, lo slot risulta **Prenotato** e non è modificabile dalla pagina disponibilità.
 Al riavvio del backend Flyway applica le nuove migrazioni al database configurato.
+
+## Gestione appuntamenti ADMIN
+
+Accedere come ADMIN e aprire **Prenotazioni studio** (`/admin/appuntamenti`). La pagina
+mostra gli appuntamenti del giorno scelto, filtrabili per stato, con nome, cognome,
+email e telefono del cliente. Ogni azione presenta un riepilogo prima del salvataggio.
+
+| Transizione | Regola |
+| --- | --- |
+| REQUESTED → CONFIRMED | Solo prima dell'inizio della visita |
+| CONFIRMED → COMPLETED | Solo dopo il termine dello slot |
+| REQUESTED / CONFIRMED → CANCELLED | Consentita all'ADMIN, anche per sistemare richieste passate |
+| Da COMPLETED / CANCELLED | Nessuna transizione: stati definitivi |
+
+Le API, riservate al ruolo ADMIN, sono:
+
+- `GET /api/admin/appointments?from=...&to=...&status=...`: intervallo massimo di 31 giorni;
+  `status` facoltativo. Restituisce dati della visita e contatti del cliente, senza credenziali.
+- `PATCH /api/admin/appointments/{id}/status`: corpo `{"status":"CONFIRMED","version":0}`.
+  La versione è quella dell'appuntamento ricevuto nell'elenco, non quella dello slot.
+
+Il cambio di stato avviene in una transazione. Il confronto della versione richiesta
+e `@Version` sull'entità `Appointment` impediscono che due modifiche concorrenti vadano
+entrambe a buon fine. Transizioni non ammesse e versioni obsolete restituiscono 409;
+Angular mantiene il messaggio di errore e aggiorna l'elenco. L'utente vede il nuovo
+stato aggiornando la propria pagina Appuntamenti.
+
+L'annullamento conserva l'appuntamento nello storico e **non riapre automaticamente
+lo slot**. L'ADMIN può riattivare uno slot futuro dalla pagina Disponibilità studio,
+se desidera offrirlo nuovamente. Conferma e completamento mantengono lo slot occupato.
+Non sono necessarie nuove migrazioni per queste operazioni e non vengono inviate email.
 
 ## Verifiche
 
@@ -200,3 +233,6 @@ annullamento e isolamento degli elenchi personali. Il test del vincolo PostgreSQ
 contro sovrapposizioni simultanee è saltato su H2: eseguire la suite PostgreSQL per
 verificare anche quel caso e le migrazioni. Il frontend verifica creazione slot,
 guard ADMIN, invio prenotazione, selezione obbligatoria, conflitti, errori e sessione scaduta.
+La gestione degli stati include test per autorizzazioni, filtri, vincoli temporali,
+stati definitivi, conflitti tra ADMIN, annullamento con riattivazione e nuova prenotazione,
+visibilità dello stato nell'elenco personale e conferma delle azioni nell'interfaccia.

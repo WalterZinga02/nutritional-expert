@@ -37,6 +37,8 @@ public class Appointment {
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); }
     @PreUpdate void onUpdate() { updatedAt = Instant.now(); }
     public Long getId() { return id; }
+    public User getUser() { return user; }
+    public void changeStatus(AppointmentStatus status) { this.status = status; }
     public AvailabilitySlot getSlot() { return slot; }
     public AppointmentType getType() { return type; }
     public AppointmentStatus getStatus() { return status; }
