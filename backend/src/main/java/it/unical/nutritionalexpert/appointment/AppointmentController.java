@@ -26,4 +26,9 @@ public class AppointmentController {
     }
     @GetMapping("/me")
     public List<AppointmentResponse> mine(@AuthenticationPrincipal Jwt jwt) { return service.mine(jwt.getSubject()); }
+    @PatchMapping("/{id}/cancel")
+    public AppointmentResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                      @Valid @RequestBody CancelAppointmentRequest request) {
+        return service.cancel(jwt.getSubject(), id, request);
+    }
 }

@@ -133,6 +133,57 @@ class AdminAppointmentIntegrationTests {
                     .andExpect(status().isBadRequest());
         }
     }
+    private MvcResult cancelAs(String token, long id, long version) throws Exception {
+        return mvc.perform(patch("/api/appointments/" + id + "/cancel").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("version", version)))).andReturn();
+    }
+    @Test void ownerCancellationPreservesHistoryAndSlotAndRejectsStaleRequests() throws Exception {
+        assertThat(cancelAs(userToken, appointment.getId(), 0).getResponse().getStatus()).isEqualTo(200);
+        assertThat(cancelAs(userToken, appointment.getId(), 1).getResponse().getStatus()).isEqualTo(409);
+        Appointment confirmed = create(start.plusSeconds(3600), AppointmentStatus.CONFIRMED);
+        assertThat(cancelAs(userToken, confirmed.getId(), 0).getResponse().getStatus()).isEqualTo(200);
+        assertThat(appointments.count()).isEqualTo(2);
+        mvc.perform(get("/api/appointments/me").header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].status").value("CANCELLED"))
+                .andExpect(jsonPath("$[1].status").value("CANCELLED"));
+        assertThat(slots.findById(appointment.getSlot().getId()).orElseThrow().isAvailable()).isFalse();
+        assertThat(appointments.findById(appointment.getId()).orElseThrow().getVersion()).isEqualTo(1);
+    }
+    @Test void cancellationChecksOwnershipAuthenticationPayloadAndTime() throws Exception {
+        assertThat(cancelAs(adminToken, appointment.getId(), 0).getResponse().getStatus()).isEqualTo(404);
+        assertThat(cancelAs(userToken, Long.MAX_VALUE, 0).getResponse().getStatus()).isEqualTo(404);
+        assertThat(cancelAs(userToken, appointment.getId(), 99).getResponse().getStatus()).isEqualTo(409);
+        mvc.perform(patch("/api/appointments/" + appointment.getId() + "/cancel")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}")).andExpect(status().isUnauthorized());
+        for (String body : List.of("{}", "{\"version\":-1}"))
+            mvc.perform(patch("/api/appointments/" + appointment.getId() + "/cancel")
+                    .header("Authorization", "Bearer " + userToken).contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest());
+        Appointment past = create(Instant.now().minusSeconds(600), AppointmentStatus.CONFIRMED);
+        assertThat(cancelAs(userToken, past.getId(), 0).getResponse().getStatus()).isEqualTo(409);
+        Appointment completed = create(start.plusSeconds(3600), AppointmentStatus.COMPLETED);
+        assertThat(cancelAs(userToken, completed.getId(), 0).getResponse().getStatus()).isEqualTo(409);
+    }
+    @Test void userCancellationAndAdminConfirmationHaveOnlyOneWinner() throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);
+        try {
+            Future<Integer> user = executor.submit(() -> {
+                ready.countDown();
+                if (!go.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Timeout");
+                return cancelAs(userToken, appointment.getId(), 0).getResponse().getStatus();
+            });
+            Future<Integer> admin = executor.submit(() -> {
+                ready.countDown();
+                if (!go.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Timeout");
+                return update(appointment.getId(), "CONFIRMED", 0).getResponse().getStatus();
+            });
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            assertThat(List.of(user.get(15, TimeUnit.SECONDS), admin.get(15, TimeUnit.SECONDS))).containsExactlyInAnyOrder(200, 409);
+            assertThat(appointments.findById(appointment.getId()).orElseThrow().getVersion()).isEqualTo(1);
+        } finally { go.countDown(); executor.shutdownNow(); }
+    }
     @Test void concurrentStatusChangesHaveOnlyOneWinner() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);

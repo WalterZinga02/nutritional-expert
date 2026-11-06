@@ -8,6 +8,8 @@ import java.time.Instant;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
     @EntityGraph(attributePaths = "slot")
+    java.util.Optional<Appointment> findByIdAndUserId(Long id, Long userId);
+    @EntityGraph(attributePaths = "slot")
     List<Appointment> findByUserIdOrderBySlotStartTimeDescIdDesc(Long userId);
     boolean existsBySlotIdAndStatusNot(Long slotId, AppointmentStatus status);
 

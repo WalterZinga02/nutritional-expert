@@ -46,6 +46,16 @@
     </fieldset>
   </form>
   <section class="my-appointments">
+    @if (cancellationMessage()) { <p class="success" role="status">{{ cancellationMessage() }}</p> }
+    @if (pendingCancel(); as selected) {
+      <div class="cancel-confirmation" role="region" aria-label="Conferma annullamento">
+        <strong>Annullare l'appuntamento n. {{ selected.id }}?</strong>
+        <p>{{ typeLabel(selected.type) }} · {{ selected.startTime | date:'dd/MM/yyyy HH:mm' }}</p>
+        <p>La visita resterà nello storico. Lo studio deciderà se riaprire questo orario.</p>
+        <button type="button" class="secondary" [disabled]="busy()" (click)="pendingCancel.set(null)">Mantieni appuntamento</button>
+        <button type="button" class="primary" [disabled]="busy()" (click)="cancel()">{{ busy() ? 'Annullamento in corso…' : 'Conferma annullamento' }}</button>
+      </div>
+    }
     <div class="list-heading"><h2>I miei appuntamenti</h2>
       <button type="button" class="secondary" [disabled]="loadingAppointments() || busy()" (click)="loadAppointments()">Aggiorna elenco</button>
     </div>
@@ -61,6 +71,10 @@
               <small>Appuntamento n. {{ appointment.id }}</small>
             </div>
             <span class="badge">{{ statuses[appointment.status] }}</span>
+            @if (canCancel(appointment)) {
+              <button type="button" class="secondary cancel-appointment" [disabled]="busy()"
+                (click)="requestCancellation(appointment)">Annulla appuntamento</button>
+            }
           </li>
         }
       </ul>

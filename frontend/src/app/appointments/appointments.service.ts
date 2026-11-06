@@ -27,4 +27,7 @@ export class AppointmentsService {
     return this.http.post<Appointment>('/api/appointments', { slotId: slot.id, version: slot.version, type });
   }
   mine() { return this.http.get<Appointment[]>('/api/appointments/me'); }
+  cancel(appointment: Appointment) {
+    return this.http.patch<Appointment>(`/api/appointments/${appointment.id}/cancel`, { version: appointment.version });
+  }
 }

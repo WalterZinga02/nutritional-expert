@@ -7,7 +7,8 @@ Piattaforma web per i clienti di uno studio di nutrizione.
 Registrazione e login collegati tra Angular e Spring Boot, visualizzazione e modifica del profilo personale e logout.
 Sono disponibili anche la gestione degli slot ADMIN e la prenotazione delle visite con elenco personale.
 L'ADMIN può consultare le prenotazioni e confermarle, completarle o annullarle.
-Homepage dello studio, recensioni e annullamento da parte dell'utente sono i prossimi moduli.
+L'utente può annullare i propri appuntamenti futuri richiesti o confermati.
+Homepage dello studio e recensioni sono i prossimi moduli.
 
 - Backend: Java 17, Spring Boot, Spring Security, JPA, PostgreSQL e Flyway.
 - Frontend: Angular SPA con form reattivi, rotte protette e messaggi in italiano.
@@ -158,8 +159,26 @@ versione. Il conflitto restituisce 409 e Angular aggiorna le disponibilità e l'
 La migrazione V4 sostituisce l'unicità assoluta dell'appuntamento per slot con un
 indice univoco sui soli appuntamenti non annullati. Questo conserva lo storico degli
 annullati e permette di offrire nuovamente uno slot dopo un annullamento e una
-riattivazione esplicita da parte dell'ADMIN. L'annullamento da parte dell'utente
-non è ancora implementato.
+riattivazione esplicita da parte dell'ADMIN.
+
+### Annullamento da parte dell'utente
+
+In **Appuntamenti → I miei appuntamenti**, il pulsante **Annulla appuntamento**
+apre una conferma con i dettagli della visita. Sono annullabili solo visite proprie
+`REQUESTED` o `CONFIRMED` prima dell'inizio; le visite iniziate, completate o già
+annullate non sono modificabili dall'utente.
+
+`PATCH /api/appointments/{id}/cancel` richiede il JWT e un JSON `{"version":0}`.
+Il backend ricava il proprietario dal token e cerca l'appuntamento per ID e utente:
+un ID inesistente o appartenente ad altri restituisce 404. La versione non aggiornata
+o uno stato/orario non annullabile restituisce 409; payload non validi restituiscono 400.
+L'aggiornamento transazionale a `CANCELLED` usa `@Version`, anche in concorrenza
+con la conferma ADMIN. Angular ricarica l'elenco dopo il successo o un conflitto.
+
+L'appuntamento resta nello storico e lo slot resta disabilitato: la riapertura
+è una scelta esplicita dell'ADMIN. Non servono nuove migrazioni del database.
+I test coprono proprietà, autenticazione, validazione, stato/orario, storico,
+concorrenza utente/ADMIN e conferma/errori nell'interfaccia Angular.
 
 Per provare il flusso: creare uno slot futuro come ADMIN, uscire, accedere con un
 account USER e prenotarlo. L'utente vede la richiesta nell'elenco personale; tornando

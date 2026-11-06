@@ -34,6 +34,8 @@ export class AppointmentsPage {
   readonly error = signal('');
   readonly listError = signal('');
   readonly receipt = signal<Appointment | null>(null);
+  readonly pendingCancel = signal<Appointment | null>(null);
+  readonly cancellationMessage = signal('');
   readonly visitTypes = VISIT_TYPES;
   readonly statuses = STATUS_LABELS;
   readonly form = this.fb.nonNullable.group({
@@ -62,6 +64,7 @@ export class AppointmentsPage {
       .subscribe({ next: slots => this.slots.set(slots), error: error => this.error.set(this.message(error)) });
   }
   loadAppointments(): void {
+    this.pendingCancel.set(null);
     this.appointmentsRequest?.unsubscribe();
     this.listError.set('');
     this.loadingAppointments.set(true);
@@ -82,6 +85,8 @@ export class AppointmentsPage {
       return;
     }
     this.busy.set(true);
+    this.pendingCancel.set(null);
+    this.cancellationMessage.set('');
     this.error.set('');
     this.receipt.set(null);
     this.api.book(slot, type).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
@@ -94,6 +99,35 @@ export class AppointmentsPage {
         if (error.status === 409 || error.status === 404) {
           this.loadSlots();
           this.loadAppointments();
+        }
+      } });
+  }
+  canCancel(appointment: Appointment): boolean {
+    return (appointment.status === 'REQUESTED' || appointment.status === 'CONFIRMED')
+      && Date.parse(appointment.startTime) > Date.now();
+  }
+  requestCancellation(appointment: Appointment): void {
+    if (this.busy() || !this.canCancel(appointment)) return;
+    this.error.set('');
+    this.cancellationMessage.set('');
+    this.pendingCancel.set(appointment);
+  }
+  cancel(): void {
+    const appointment = this.pendingCancel();
+    if (this.busy() || !appointment) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.receipt.set(null);
+    this.api.cancel(appointment).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
+      .subscribe({ next: () => {
+        this.cancellationMessage.set(`Appuntamento n. ${appointment.id} annullato.`);
+        this.loadAppointments();
+        this.loadSlots();
+      }, error: error => {
+        this.error.set(this.message(error));
+        if (error.status === 409 || error.status === 404) {
+          this.loadAppointments();
+          this.loadSlots();
         }
       } });
   }

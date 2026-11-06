@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { AppointmentsPage } from './appointments-page';
 import { AuthService } from '../auth/auth.service';
 import { authInterceptor } from '../auth/auth.interceptor';
+import { Appointment } from './appointments.service';
 
 describe('User appointments', () => {
   let http: HttpTestingController;
@@ -12,7 +13,7 @@ describe('User appointments', () => {
   let auth: AuthService;
   const slot = { id: 8, startTime: new Date(Date.now() + 86400000).toISOString(),
     endTime: new Date(Date.now() + 88200000).toISOString(), available: true, booked: false, version: 2 };
-  const appointment = { id: 5, slotId: 8, startTime: slot.startTime, endTime: slot.endTime,
+  const appointment: Appointment = { id: 5, slotId: 8, startTime: slot.startTime, endTime: slot.endTime,
     type: 'DIET_REVIEW', status: 'REQUESTED', createdAt: new Date().toISOString(), version: 0 };
   const slotsRequest = () => http.expectOne(request => request.url === '/api/appointments/available-slots');
   beforeEach(async () => {
@@ -33,6 +34,55 @@ describe('User appointments', () => {
   });
   afterEach(() => { fixture.destroy(); http.verify(); auth.logout(); sessionStorage.clear(); });
 
+  it('confirms cancellation, sends JWT and version and refreshes history', () => {
+    const page = fixture.componentInstance;
+    page.appointments.set([appointment]);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.cancel-appointment').click();
+    http.expectNone('/api/appointments/5/cancel');
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.cancel-confirmation .primary').click();
+    const request = http.expectOne('/api/appointments/5/cancel');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ version: 0 });
+    expect(request.request.headers.get('Authorization')).toBe('Bearer user-token');
+    page.cancel();
+    http.expectNone('/api/appointments/5/cancel');
+    request.flush({ ...appointment, status: 'CANCELLED', version: 1 });
+    http.expectOne('/api/appointments/me').flush([{ ...appointment, status: 'CANCELLED', version: 1 }]);
+    slotsRequest().flush([]);
+    fixture.detectChanges();
+    expect(page.pendingCancel()).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Appuntamento n. 5 annullato.');
+    expect(fixture.nativeElement.querySelector('.cancel-appointment')).toBeNull();
+  });
+  it('refreshes on cancellation conflict and allows retry on server error', () => {
+    const page = fixture.componentInstance;
+    page.requestCancellation(appointment);
+    page.cancel();
+    http.expectOne('/api/appointments/5/cancel').flush({}, { status: 500, statusText: 'Error' });
+    expect(page.busy()).toBe(false);
+    expect(page.pendingCancel()).toEqual(appointment);
+    page.cancel();
+    http.expectOne('/api/appointments/5/cancel').flush({ message: 'Appuntamento modificato.' }, { status: 409, statusText: 'Conflict' });
+    http.expectOne('/api/appointments/me').flush([{ ...appointment, status: 'CONFIRMED', version: 1 }]);
+    slotsRequest().flush([]);
+    expect(page.pendingCancel()).toBeNull();
+    expect(page.cancellationMessage()).toBe('');
+    expect(page.error()).toBe('Appuntamento modificato.');
+  });
+  it('hides cancellation for past and terminal visits and lets users dismiss confirmation', () => {
+    const page = fixture.componentInstance;
+    expect(page.canCancel({ ...appointment, status: 'CONFIRMED' })).toBe(true);
+    expect(page.canCancel({ ...appointment, status: 'COMPLETED' })).toBe(false);
+    expect(page.canCancel({ ...appointment, status: 'CANCELLED' })).toBe(false);
+    expect(page.canCancel({ ...appointment, startTime: new Date(Date.now() - 1000).toISOString() })).toBe(false);
+    page.requestCancellation(appointment);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.cancel-confirmation .secondary').click();
+    page.cancel();
+    http.expectNone('/api/appointments/5/cancel');
+  });
   it('requires a slot and visit type before sending', () => {
     fixture.componentInstance.book();
     fixture.detectChanges();

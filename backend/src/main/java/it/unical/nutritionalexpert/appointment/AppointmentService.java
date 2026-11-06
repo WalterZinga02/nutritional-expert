@@ -59,6 +59,21 @@ public class AppointmentService {
         return appointments.findByUserIdOrderBySlotStartTimeDescIdDesc(user.getId()).stream()
                 .map(AppointmentResponse::from).toList();
     }
+    @Transactional
+    public AppointmentResponse cancel(String subject, Long id, CancelAppointmentRequest request) {
+        User user = currentUser(subject);
+        Appointment appointment = appointments.findByIdAndUserId(id, user.getId()).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Appuntamento non trovato."));
+        if (appointment.getVersion() != request.version())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Appuntamento modificato. Aggiorna l'elenco e riprova.");
+        if ((appointment.getStatus() != AppointmentStatus.REQUESTED && appointment.getStatus() != AppointmentStatus.CONFIRMED)
+                || !appointment.getSlot().getStartTime().isAfter(Instant.now()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Puoi annullare solo visite richieste o confermate prima dell'inizio.");
+        appointment.changeStatus(AppointmentStatus.CANCELLED);
+        // Preserve history and leave reopening the slot to the studio. @Version protects ADMIN races too.
+        appointments.flush();
+        return AppointmentResponse.from(appointment);
+    }
     private User currentUser(String subject) {
         try {
             return users.findById(Long.parseLong(subject)).orElseThrow(() ->

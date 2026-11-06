@@ -26,4 +26,6 @@ ul { margin:0; padding:0; list-style:none; }
 li { display:flex; gap:1rem; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding:1rem 0; }
 li p { margin:.4rem 0; }
 .badge { border-radius:20px; background:#eef2eb; padding:.4rem .8rem; font-size:.85rem; }
+.cancel-confirmation { border:1px solid var(--green); border-radius:8px; padding:1rem; margin-bottom:1rem; }
+.cancel-confirmation button { margin:.3rem .5rem .3rem 0; }
 @media(max-width:550px) { .appointments { margin:2rem auto; } form, .my-appointments { padding:1rem; } li { align-items:flex-start; flex-direction:column; } }
